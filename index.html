@@ -152,6 +152,20 @@
   .srow a:hover, .srow button.lk:hover { border-color:var(--ice); background:var(--ice-dim); }
   .skel { height:11px; background:linear-gradient(90deg,var(--line) 25%,#1c2b36 50%,var(--line) 75%); background-size:200% 100%; animation:shimmer 1.4s linear infinite; margin:9px 0; }
 
+  /* ── review: planned vs actual ── */
+  .bars { display:flex; gap:6px; align-items:flex-end; height:74px; }
+  .bar { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .bar .cols { height:56px; width:100%; display:flex; gap:2px; align-items:flex-end; justify-content:center; }
+  .bar .cols i { width:38%; max-width:12px; display:block; background:var(--lock); min-height:1px; }
+  .bar .cols i.a { background:var(--ice); box-shadow:0 0 6px var(--ice-dim); }
+  .bar span { font-size:9.5px; color:var(--dim); letter-spacing:.08em; text-transform:uppercase; }
+  .rev-sum { display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .rev-sum b { color:var(--fg); } .rev-sum .up { color:var(--phos); } .rev-sum .dn { color:var(--amber); }
+  .rev-top { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; font-size:10.5px; color:var(--dim); }
+  .rev-top b { color:var(--amber); }
+  .rev-key { font-size:9.5px; color:var(--faint); letter-spacing:.08em; text-transform:uppercase; margin-top:6px; }
+  .rev-key i { width:8px; height:8px; display:inline-block; margin:0 4px 0 8px; vertical-align:middle; background:var(--lock); } .rev-key i.a { background:var(--ice); }
+
   /* ── tree map modal ── */
   .overlay { position:fixed; inset:0; z-index:50; background:rgba(4,7,10,.88); backdrop-filter:blur(6px); display:none; padding:4vh 16px; overflow:auto; }
   .overlay.on { display:block; }
@@ -274,6 +288,7 @@
         panel("queue","Queue",'<span class="meta" id="qcount"></span>',160)+
         panel("week","Week",'<a class="meta" href="https://calendar.google.com" target="_blank" rel="noopener">Google Cal ↗</a>',240)+
         panel("vitals","Vitals",'<span class="meta" id="xpmeta"></span>',320)+
+        panel("review","Review",'<span class="meta" id="revmeta"></span>',360)+
         panel("trees","Skill Trees",'<button class="meta" id="treeexpand">Expand ↗</button>',400)+
         panel("obj","Objective","",480)+
         panel("signals","Signals","",560)+
@@ -363,6 +378,19 @@
     document.getElementById("vitals").innerHTML='<div class="lvl"><span class="n">'+pad(totalXp?Math.max(1,Math.floor(totalXp/200)):0)+'</span><span class="lab">Level</span><span class="xp">'+totalXp.toLocaleString()+' XP</span></div>'+
       (attrs.length?attrs.map(function(a){ var on=Math.max(1,Math.round(a.xp/maxXp*14)); var s="";for(var i=0;i<14;i++)s+='<i class="'+(i<on?'on':'')+'"></i>'; return '<div class="attr'+(bodyA[a.name]?' body':'')+'"><span class="k">'+esc(a.name)+'</span><div class="seg">'+s+'</div><span class="v">'+a.xp+'</span></div>'; }).join(''):'<div class="empty">No XP yet — <span class="ex">/log start reading</span> to start a tree.</div>');
     setSt("vitals", totalXp?"on":"");
+
+    var wk=d.week||{}, days=wk.days||[];
+    var mx=Math.max.apply(null,days.map(function(x){return Math.max(x.planned||0,x.actual||0);}).concat([1]));
+    var fmtH=function(m){return (m/60).toFixed(1)+"h";};
+    var delta=(wk.actualTotal||0)-(wk.prevActual||0);
+    document.getElementById("revmeta").textContent=fmtH(wk.actualTotal||0)+" LOGGED";
+    document.getElementById("review").innerHTML=(days.length?
+      '<div class="bars">'+days.map(function(x){ var ph=Math.round((x.planned||0)/mx*100), ah=Math.round((x.actual||0)/mx*100); return '<div class="bar"><div class="cols"><i style="height:'+ph+'%" title="planned '+(x.planned||0)+' min"></i><i class="a" style="height:'+ah+'%" title="logged '+(x.actual||0)+' min"></i></div><span>'+esc(x.label||"")+'</span></div>'; }).join('')+'</div>'+
+      '<div class="rev-key"><i></i>planned<i class="a"></i>logged</div>'+
+      '<div class="rev-sum"><span>logged <b>'+fmtH(wk.actualTotal||0)+'</b> of '+fmtH(wk.plannedTotal||0)+' planned</span><span class="'+(delta>=0?'up':'dn')+'">'+(delta>=0?'+':'\u2212')+fmtH(Math.abs(delta))+' vs last week</span><span><b>'+(wk.xpWeek||0)+'</b> XP</span></div>'+
+      ((wk.topActivities||[]).length?'<div class="rev-top">'+wk.topActivities.slice(0,3).map(function(t){return '<span>'+esc(t.activity)+' <b>'+t.mins+'m</b></span>';}).join('')+'</div>':'')
+      :'<div class="empty">Nothing logged this week yet.</div>');
+    setSt("review",(wk.actualTotal||0)>0?"on":"");
 
     var nodes=d.nodes||[];
     if(!nodes.length) document.getElementById("trees").innerHTML='<div class="empty">No skill trees yet — say <span class="ex">show my skill trees</span>.</div>';
