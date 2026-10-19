@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PersonalAI Console</title>
+<meta name="theme-color" content="#06090d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PersonalAI">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
@@ -126,6 +133,11 @@
   .qt .nm { flex:1; min-width:0; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .qt .m { font-size:10.5px; color:var(--dim); font-variant-numeric:tabular-nums; } .qt .m .due { color:var(--amber); }
   .empty { font-size:12px; color:var(--dim); padding:4px 0; line-height:1.6; }
+  .qt .qa { display:flex; gap:4px; flex:none; opacity:0; transition:opacity .15s; }
+  .qt:hover .qa, .qt:focus-within .qa { opacity:1; }
+  @media (hover:none) { .qt .qa { opacity:1; } }
+  .qb { width:24px; height:24px; border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer; font-size:12px; display:grid; place-items:center; transition:all .13s; }
+  .qb:hover { color:var(--fg); border-color:var(--dim); } .qb.g:hover { color:var(--phos); border-color:var(--phos); } .qb.r:hover { color:var(--red); border-color:var(--red); }
   .wkrow { display:grid; grid-template-columns:62px 1fr; gap:10px; padding:8px 0; border-top:1px solid var(--line); align-items:start; }
   .wkrow:first-child { border-top:0; } .wkrow.today .dl { color:var(--ice); }
   .wkrow .dl { font-family:var(--disp); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-variant-numeric:tabular-nums; padding-top:2px; }
@@ -303,6 +315,8 @@
     document.getElementById("helpb").onclick=function(){ pushMsg("assistant",CAPS); };
     document.getElementById("thread").addEventListener("click",function(e){ if(e.target.classList.contains("ex")) sendMsg(e.target.textContent); });
     document.getElementById("treeexpand").onclick=openTreeMap;
+    // Queue row actions drive the same live command channel as typing.
+    document.getElementById("queue").addEventListener("click",function(e){ var b=e.target.closest("button[data-cmd]"); if(b) sendMsg(b.dataset.cmd); });
     var vb=document.getElementById("voicebtn"); function setV(){ vb.classList.toggle("on",voiceOn); vb.innerHTML=(voiceOn?ICON.speaker:ICON.mute)+'<span>Voice</span>'; } setV();
     vb.onclick=function(){ voiceOn=!voiceOn; ls("pa_voice",voiceOn?"1":"0"); setV(); if(voiceOn){ loadVoice(); speak("Voice on."); } else if("speechSynthesis" in window) speechSynthesis.cancel(); };
     document.addEventListener("keydown",function(e){ if(e.key==="/" && document.activeElement && document.activeElement.tagName!=="INPUT"){ e.preventDefault(); var i=document.getElementById("cmd"); if(i) i.focus(); } });
@@ -363,7 +377,7 @@
 
     var tasks=(d.today&&d.today.tasks)||[];
     document.getElementById("qcount").textContent=tasks.length+" PENDING";
-    document.getElementById("queue").innerHTML=tasks.length?tasks.map(function(t){ var due=t.due?' · <span class="due">'+esc(dueShort(t.due))+'</span>':''; return '<div class="qt"><span class="sig"></span><span class="nm">'+esc(t.name)+'</span><span class="m">'+(t.mins||0)+'m'+due+'</span></div>'; }).join(''):'<div class="empty">Queue clear.</div>';
+    document.getElementById("queue").innerHTML=tasks.length?tasks.map(function(t){ var due=t.due?' · <span class="due">'+esc(dueShort(t.due))+'</span>':''; return '<div class="qt"><span class="sig"></span><span class="nm">'+esc(t.name)+'</span><span class="m">'+(t.mins||0)+'m'+due+'</span><span class="qa"><button class="qb g" data-cmd="finished '+esc(t.name)+'" title="Mark done">\u2713</button><button class="qb r" data-cmd="cancel the '+esc(t.name)+' task" title="Remove">\u2715</button></span></div>'; }).join(''):'<div class="empty">Queue clear.</div>';
     setSt("queue", tasks.length?(tasks.length>5?"warn":"on"):"ok");
 
     var up=d.upcoming||[];
