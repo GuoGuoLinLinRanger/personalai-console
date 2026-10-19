@@ -1,0 +1,15 @@
+{
+  "name": "PersonalAI Console",
+  "short_name": "PersonalAI",
+  "description": "Operations console for your personal AI assistant.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#06090d",
+  "theme_color": "#06090d",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
