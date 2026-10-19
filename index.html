@@ -180,6 +180,14 @@
   .rev-key { font-size:9.5px; color:var(--faint); letter-spacing:.08em; text-transform:uppercase; margin-top:6px; }
   .rev-key i { width:8px; height:8px; display:inline-block; margin:0 4px 0 8px; vertical-align:middle; background:var(--lock); } .rev-key i.a { background:var(--ice); }
 
+  .qtag { font-size:9px; letter-spacing:.14em; color:var(--amber); border:1px solid var(--line); padding:0 5px; vertical-align:middle; margin-right:2px; }
+  .osep { height:1px; background:var(--line); margin:10px 0; }
+  .hb-row { display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--line); font-size:12.5px; }
+  .hb-row:first-child { border-top:0; } .hb-row .nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--fg); }
+  .hb-row .m { font-size:10.5px; color:var(--dim); font-variant-numeric:tabular-nums; }
+  .dchips { display:flex; gap:2px; flex:none; } .dchips i { width:15px; height:15px; font-size:8.5px; font-style:normal; display:grid; place-items:center; color:var(--faint); border:1px solid var(--line); }
+  .dchips i.on { color:var(--ice); border-color:var(--bracket); background:var(--ice-dim); }
+
   /* ── tree map modal ── */
   .overlay { position:fixed; inset:0; z-index:50; background:rgba(4,7,10,.88); backdrop-filter:blur(6px); display:none; padding:4vh 16px; overflow:auto; }
   .overlay.on { display:block; }
@@ -332,7 +340,8 @@
         panel("vitals","Vitals",'<span class="meta" id="xpmeta"></span>',320)+
         panel("review","Review",'<span class="meta" id="revmeta"></span>',360)+
         panel("trees","Skill Trees",'<button class="meta" id="treeexpand">Expand ↗</button>',400)+
-        panel("obj","Objective","",480)+
+        panel("obj","Objectives",'<span class="meta" id="ocount"></span>',480)+
+        panel("habits","Habits",'<span class="meta" id="hcount"></span>',520)+
         panel("signals","Signals","",560)+
       '</div></div><div class="foot">SYS:// LIVE · '+esc(PERSONA)+' speaks with your browser’s voice — a persona, not a real-person clone</div></div>';
     document.getElementById("objwrap").hidden=true;
@@ -445,11 +454,17 @@
         '<div class="legend"><span><i style="background:var(--lock)"></i>Locked</span><span><i style="background:var(--ice)"></i>Available</span><span><i style="background:var(--amber)"></i>Active</span><span><i style="background:var(--phos)"></i>Unlocked</span></div>'; }
     setSt("trees", nodes.some(function(n){return n.state==="in_progress";})?"warn":(nodes.length?"on":""));
 
-    var q=(d.quests||[])[0]; var ow=document.getElementById("objwrap");
-    if(q){ ow.hidden=false; var N=Math.max(q.total,1),seg=""; for(var i=0;i<N;i++) seg+='<i class="'+(i<q.done?'on':'')+'"></i>';
-      document.getElementById("obj").innerHTML='<div class="obj"><div class="ot">'+esc(q.title)+'</div><div class="os">'+q.done+' / '+q.total+' steps'+(q.deadline?' · due '+dueShort(q.deadline):'')+'</div><div class="steps">'+seg+'</div></div>'; setSt("obj","on"); } else ow.hidden=true;
+    var qs=(d.quests||[]); var ow=document.getElementById("objwrap"); var oc=document.getElementById("ocount");
+    if(qs.length){ ow.hidden=false; if(oc) oc.textContent=qs.length+" ACTIVE";
+      document.getElementById("obj").innerHTML=qs.map(function(q){ var N=Math.max(q.total||0,1),seg=""; for(var i=0;i<N;i++) seg+='<i class="'+(i<(q.done||0)?'on':'')+'"></i>';
+        return '<div class="obj"><div class="ot">'+(q.type==="side"?'<span class="qtag">SIDE</span> ':'')+esc(q.title)+'</div><div class="os">'+(q.total?(q.done||0)+' / '+q.total+' steps':'side quest \u2014 completes when its node unlocks')+(q.deadline?' \u00B7 due '+dueShort(q.deadline):'')+'</div>'+(q.total?'<div class="steps">'+seg+'</div>':'')+'</div>'; }).join('<div class="osep"></div>');
+      setSt("obj",qs.some(function(q){return q.total&&(q.done||0)>=q.total;})?"ok":"on"); } else ow.hidden=true;
 
     var jobsUrl=ls("pa_jobs_url")||"https://guoguolinlinranger.github.io/radar-monkey/";
+    var hs=d.habits||[]; var hc=document.getElementById("hcount"); if(hc) hc.textContent=hs.length+(hs.length===1?" HABIT":" HABITS");
+    document.getElementById("habits").innerHTML=hs.length?hs.map(function(h){ var days=h.days||[]; var L=["S","M","T","W","T","F","S"];
+      return '<div class="hb-row"><span class="nm">'+esc(h.name)+'</span><span class="dchips">'+L.map(function(l,i){return '<i class="'+(days.indexOf(i)>=0?'on':'')+'">'+l+'</i>';}).join('')+'</span><span class="m">'+(h.est_duration_min||30)+'m</span></div>'; }).join(''):'<div class="empty">No habits yet \u2014 say <span class="ex">gym every mon/wed/fri, 45m</span>.</div>';
+    setSt("habits", hs.length?"on":"");
     var lb=d.lastBriefingOk?new Date(d.lastBriefingOk):null, ageH=lb?(Date.now()-lb.getTime())/36e5:null;
     var bWarn=ageH!=null&&ageH>26, bText=lb?(ageH<1?"last briefing under an hour ago":"last briefing "+Math.round(ageH)+"h ago"):"no briefing recorded yet";
     document.getElementById("signals").innerHTML=
