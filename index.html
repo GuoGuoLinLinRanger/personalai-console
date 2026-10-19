@@ -130,6 +130,8 @@
   .tag.pl { color:var(--ice); border-color:var(--bracket); }
   .qt { display:flex; align-items:center; gap:9px; padding:7px 0; border-top:1px solid var(--line); font-size:12.5px; }
   .qt:first-child { border-top:0; } .qt .sig { width:3px; align-self:stretch; min-height:16px; background:var(--ice); box-shadow:0 0 6px var(--ice-dim); }
+  .qt .sig.p5 { background:var(--red); box-shadow:0 0 6px rgba(255,107,107,.35); } .qt .sig.p4 { background:var(--amber); box-shadow:0 0 6px rgba(244,177,79,.3); }
+  .qt .sig.p2, .qt .sig.p1 { background:var(--dim); box-shadow:none; }
   .qt .nm { flex:1; min-width:0; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .qt .m { font-size:10.5px; color:var(--dim); font-variant-numeric:tabular-nums; } .qt .m .due { color:var(--amber); }
   .empty { font-size:12px; color:var(--dim); padding:4px 0; line-height:1.6; }
@@ -260,6 +262,7 @@
     mute:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/></svg>',
     mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
     mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m3 7 9 6 9-6"/></svg>',
+    bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
     briefcase:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg>'
   };
 
@@ -405,7 +408,7 @@
 
     var tasks=(d.today&&d.today.tasks)||[];
     document.getElementById("qcount").textContent=tasks.length+" PENDING";
-    document.getElementById("queue").innerHTML=tasks.length?tasks.map(function(t){ var due=t.due?' · <span class="due">'+esc(dueShort(t.due))+'</span>':''; return '<div class="qt"><span class="sig"></span><span class="nm">'+esc(t.name)+'</span><span class="m">'+(t.mins||0)+'m'+due+'</span><span class="qa"><button class="qb g" data-cmd="finished '+esc(t.name)+'" title="Mark done">\u2713</button><button class="qb r" data-cmd="cancel the '+esc(t.name)+' task" title="Remove">\u2715</button></span></div>'; }).join(''):'<div class="empty">Queue clear.</div>';
+    document.getElementById("queue").innerHTML=tasks.length?tasks.map(function(t){ var due=t.due?' · <span class="due">'+esc(dueShort(t.due))+'</span>':''; return '<div class="qt"><span class="sig p'+(t.importance||3)+'"></span><span class="nm">'+esc(t.name)+'</span><span class="m">'+(t.mins||0)+'m'+due+'</span><span class="qa"><button class="qb g" data-cmd="finished '+esc(t.name)+'" title="Mark done">\u2713</button><button class="qb r" data-cmd="cancel the '+esc(t.name)+' task" title="Remove">\u2715</button></span></div>'; }).join(''):'<div class="empty">Queue clear.</div>';
     setSt("queue", tasks.length?(tasks.length>5?"warn":"on"):"ok");
 
     var up=d.upcoming||[];
@@ -447,10 +450,13 @@
       document.getElementById("obj").innerHTML='<div class="obj"><div class="ot">'+esc(q.title)+'</div><div class="os">'+q.done+' / '+q.total+' steps'+(q.deadline?' · due '+dueShort(q.deadline):'')+'</div><div class="steps">'+seg+'</div></div>'; setSt("obj","on"); } else ow.hidden=true;
 
     var jobsUrl=ls("pa_jobs_url")||"https://guoguolinlinranger.github.io/radar-monkey/";
+    var lb=d.lastBriefingOk?new Date(d.lastBriefingOk):null, ageH=lb?(Date.now()-lb.getTime())/36e5:null;
+    var bWarn=ageH!=null&&ageH>26, bText=lb?(ageH<1?"last briefing under an hour ago":"last briefing "+Math.round(ageH)+"h ago"):"no briefing recorded yet";
     document.getElementById("signals").innerHTML=
+      '<div class="srow"><span class="ic" style="color:'+(bWarn?'var(--red)':'var(--phos)')+'">'+ICON.bell+'</span><div class="tx"><div class="a">'+(bWarn?'Briefings may have stopped':'Briefings running')+'</div><div class="b">'+esc(bText)+(bWarn?' \u2014 check the GitHub Actions workflow and /connect':'')+'</div></div></div>'+
       '<div class="srow"><span class="ic">'+ICON.mail+'</span><div class="tx"><div class="a">'+(d.emailWaiting||0)+' email(s) awaiting reply</div><div class="b">Triage + daily digest run automatically</div></div></div>'+
       '<div class="srow"><span class="ic" style="color:var(--ice)">'+ICON.briefcase+'</span><div class="tx"><div class="a">Job applications</div><div class="b">Tracked in radar-monkey</div></div><a href="'+esc(jobsUrl)+'" target="_blank" rel="noopener">Open ↗</a><button class="lk" id="setjobs" title="Set link">✎</button></div>';
-    setSt("signals", (d.emailWaiting||0)>0?"warn":"ok");
+    setSt("signals", bWarn?"warn":((d.emailWaiting||0)>0?"warn":"ok"));
     var sj=document.getElementById("setjobs"); if(sj) sj.onclick=function(){ var v=window.prompt("radar-monkey dashboard URL:", jobsUrl); if(v){ ls("pa_jobs_url",v.trim()); renderData(DATA); } };
   }
 
