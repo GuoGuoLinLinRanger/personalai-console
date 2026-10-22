@@ -262,7 +262,7 @@
   .chat-id .nm { font:600 14px var(--sans); color:var(--text); }
   .chat-id .ps { font:500 11px var(--mono); color:var(--muted); letter-spacing:.02em; }
   .chat-id .ps.off { color:var(--faint); }
-  .chat-h .iconbtn { margin-left:auto; }
+  .chat-h .chat-expand { margin-left:auto; }
 
   .thread { flex:1; overflow-y:auto; overflow-x:hidden; padding:20px 18px 10px; display:flex; flex-direction:column; gap:16px; }
   .turn { max-width:94%; min-width:0; }
@@ -464,6 +464,28 @@
   .wrap > *:nth-child(5){ animation-delay:.38s; } .wrap > *:nth-child(6){ animation-delay:.46s; }
   .turn { animation:fade .3s var(--ease) both; }
 
+  /* ── fullscreen Chaewon ── */
+  .chat { transition:none; }
+  body.chat-full .main { display:none; }
+  body.chat-full .chat { grid-column:1 / -1; border-left:0; background:transparent; }
+  body.chat-full .thread { max-width:860px; width:100%; margin:0 auto; padding-left:24px; padding-right:24px; }
+  body.chat-full .home .ho { width:120px; height:120px; } body.chat-full .home .ho .orb { width:120px; height:120px; }
+  body.chat-full .home h1 { font-size:36px; }
+  body.chat-full .home-cards { max-width:680px; grid-template-columns:1fr 1fr; }
+  body.chat-full .composer { padding-left:0; padding-right:0; }
+  body.chat-full .composer > * { max-width:860px; margin-left:auto; margin-right:auto; padding-left:24px; padding-right:24px; box-sizing:border-box; width:100%; }
+  body.chat-full .chat-h { max-width:none; }
+  body.chat-full .tabbar { display:none; }
+  .chat-expand svg { width:16px; height:16px; }
+
+  /* ── creative dashboard touches ── */
+  #todaywrap { background:linear-gradient(135deg, rgba(255,61,116,.07), transparent 42%), radial-gradient(120% 140% at 100% 0%, rgba(120,96,255,.06), transparent 55%), var(--surface); }
+  #todaywrap::before { content:""; position:absolute; inset:0 0 auto 0; height:2px; border-radius:var(--r) var(--r) 0 0; background:linear-gradient(90deg, var(--accent), transparent 42%); opacity:.7; }
+  .card { position:relative; }
+  .vt-lvl { text-shadow:0 0 26px rgba(255,61,116,.35); } .rv-foot .big { text-shadow:0 0 22px rgba(255,61,116,.3); }
+  .today-date { position:relative; display:inline-block; }
+  .ev.now .n { font-weight:600; }
+
   /* ── responsive ── */
   @media (max-width:1180px) { .today-cols { grid-template-columns:1fr; gap:18px; } }
   @media (max-width:900px) {
@@ -523,6 +545,8 @@
     trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>',
     edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
     ext:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+    expand:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5M15 4h5v5M15 20h5v-5M9 20H4v-5"/></svg>',
+    collapse:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h5V4M20 9h-5V4M20 15h-5v5M4 15h5v5"/></svg>',
     plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
     chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
     link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>',
@@ -661,6 +685,7 @@
         '<aside class="chat">'+
           '<div class="chat-h"><div class="orb-wrap" id="presence" data-orb data-state="idle">'+orb()+'</div>'+
             '<div class="chat-id"><span class="nm">'+esc(PERSONA)+'</span><span class="ps" id="chatstate">'+esc(PERSONA)+' · idle</span></div>'+
+            '<button class="iconbtn chat-expand" id="expandbtn" title="Fullscreen (Chaewon only)">'+ICON.expand+'</button>'+
             '<button class="iconbtn" id="voicebtn" title="Spoken replies"></button></div>'+
           '<div class="thread scroll" id="thread"></div>'+
           '<div class="composer">'+
@@ -681,6 +706,7 @@
     document.getElementById("signout").onclick=signOut;
     document.getElementById("helpbtn").onclick=toggleHelp;
     document.getElementById("treeexpand").onclick=openTreeMap;
+    document.getElementById("expandbtn").onclick=toggleFull;
     document.getElementById("feedbtn").onclick=function(){ document.getElementById("feed").classList.add("on"); setTimeout(function(){ var t=document.getElementById("feedtext"); if(t) t.focus(); },50); };
     document.getElementById("fx").onclick=function(){ document.getElementById("feed").classList.remove("on"); };
     document.getElementById("feedgo").onclick=function(){ var t=document.getElementById("feedtext"); var v=t?t.value:""; if(v.trim()){ feedResources(v); if(t) t.value=""; document.getElementById("feed").classList.remove("on"); } };
@@ -714,12 +740,16 @@
   function setView(chat){ document.body.classList.toggle("view-chat",!!chat);
     var d=document.getElementById("tab-dash"), c=document.getElementById("tab-chat"); if(d)d.classList.toggle("on",!chat); if(c)c.classList.toggle("on",!!chat);
     if(chat){ var t=document.getElementById("thread"); if(t) t.scrollTop=t.scrollHeight; } }
+  function toggleFull(on){ var full = on===undefined ? !document.body.classList.contains("chat-full") : !!on;
+    document.body.classList.toggle("chat-full",full); if(full) setView(true);
+    var b=document.getElementById("expandbtn"); if(b){ b.innerHTML=full?ICON.collapse:ICON.expand; b.title=full?"Exit fullscreen":"Fullscreen (Chaewon only)"; }
+    var t=document.getElementById("thread"); if(t) t.scrollTop=t.scrollHeight; }
 
   function bindGlobals(){
     if(globalsBound) return; globalsBound=true;
     document.addEventListener("keydown",function(e){
       var inField=document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName);
-      if(e.key==="Escape"){ ["treesheet","help","feed"].forEach(function(id){ var s=document.getElementById(id); if(s) s.classList.remove("on"); }); return; }
+      if(e.key==="Escape"){ var anyOpen=false; ["treesheet","help","feed"].forEach(function(id){ var s=document.getElementById(id); if(s&&s.classList.contains("on")){ anyOpen=true; s.classList.remove("on"); } }); if(!anyOpen && document.body.classList.contains("chat-full")) toggleFull(false); return; }
       if(inField) return;
       if(e.key==="/"){ e.preventDefault(); var i=document.getElementById("cmd"); if(i){ setView(true); i.focus(); } }
       else if(e.key==="?"){ e.preventDefault(); toggleHelp(); }
