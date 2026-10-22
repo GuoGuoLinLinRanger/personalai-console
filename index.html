@@ -672,7 +672,7 @@
             card("review","Weekly review")+
           '</div>'+
           card("trees","Skill trees",'<span style="margin-left:auto;display:flex;align-items:center"><button class="feedbtn" id="feedbtn">'+ICON.plus+'Feed resources</button><button class="link" id="treeexpand" style="margin-left:14px">Full map '+ICON.ext+'</button></span>')+
-          card("market","Job market",'<a class="link" id="marketlink" href="https://ty-tong.github.io/radar-monkey/" target="_blank" rel="noopener noreferrer">radar-monkey '+ICON.ext+'</a>')+
+          card("market","Job market",'<a class="link" id="marketlink" href="https://guoguolinlinranger.github.io/radar-monkey/" target="_blank" rel="noopener noreferrer">radar-monkey '+ICON.ext+'</a>')+
           '<div class="grid">'+
             card("vitals","Vitals")+
             card("habits","Habits")+
@@ -910,7 +910,7 @@
 
     var lb=d.lastBriefingOk?new Date(d.lastBriefingOk):null, ageH=lb?(now-lb.getTime())/36e5:null; var bWarn=ageH!=null&&ageH>26;
     var bText=lb?(ageH<1?"under 1h ago":Math.round(ageH)+"h ago"):"none yet";
-    var mailN=d.emailWaiting||0; var jobsUrl=ls("pa_jobs_url")||"https://ty-tong.github.io/radar-monkey/";
+    var mailN=d.emailWaiting||0; var jobsUrl=ls("pa_jobs_url")||"https://guoguolinlinranger.github.io/radar-monkey/";
     document.getElementById("signals").innerHTML='<div class="sig">'+
       '<div class="sg"><span class="k">Briefing</span><span class="v">'+(bWarn?'Stale — last ok '+esc(bText)+'<span class="sub">Check the Actions workflow, or re-run /connect.</span>':'Last ok '+esc(bText))+'</span><span class="st pill '+(bWarn?'warn':'ok')+'"><span class="dot"></span>'+(bWarn?'check':'ok')+'</span></div>'+
       '<div class="sg"><span class="k">Mail</span><span class="v">'+mailN+' awaiting reply</span><span class="st pill '+(mailN?'warn':'ok')+'">'+(mailN?'<span class="dot"></span>'+mailN:'clear')+'</span></div>'+
@@ -963,7 +963,7 @@
 
   function renderMarket(d){
     var el=document.getElementById("market"); if(!el) return; var m=d.market;
-    var jobsUrl=ls("pa_jobs_url")||"https://ty-tong.github.io/radar-monkey/";
+    var jobsUrl=ls("pa_jobs_url")||"https://guoguolinlinranger.github.io/radar-monkey/";
     var mlink=document.getElementById("marketlink"); if(mlink) mlink.href=jobsUrl;
     if(!m){ setMeta("market",""); el.innerHTML='<div class="empty">Your daily job scan hasn’t run yet. Once it does, in-demand skills and your gaps against the tech tree show up here — and feed <a href="'+esc(jobsUrl)+'" target="_blank" rel="noopener noreferrer">radar-monkey</a>.</div>'; return; }
     var skills=m.topSkills||[], gaps=m.gaps||[];
