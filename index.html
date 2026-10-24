@@ -211,10 +211,11 @@
 
   /* habits */
   .habits { display:grid; gap:3px; }
-  .hb { display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:center; padding:7px 9px; border-radius:var(--r-xs); }
+  .hb { display:grid; grid-template-columns:1fr auto; gap:5px 12px; align-items:center; padding:7px 9px; border-radius:var(--r-xs); }
   .hb:hover { background:var(--surface-2); }
-  .hb .n { font:500 14px var(--sans); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .hb .days { display:flex; gap:3px; }
+  .hb .n { grid-column:1 / -1; font:500 14px var(--sans); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hb .m { justify-self:end; }
+  .hb .days { display:flex; gap:3px; flex-wrap:wrap; }
   .hb .days i { width:17px; height:17px; display:grid; place-items:center; border-radius:5px; font:500 10px var(--sans); color:var(--faint); background:var(--surface-2); }
   .hb .days i.on { color:#1a0d10; background:var(--accent-2); font-weight:600; }
   .hb .m { font:400 11.5px var(--mono); color:var(--faint); }
