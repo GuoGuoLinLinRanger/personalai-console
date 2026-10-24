@@ -673,7 +673,6 @@
             card("review","Weekly review")+
           '</div>'+
           card("trees","Skill trees",'<span style="margin-left:auto;display:flex;align-items:center"><button class="feedbtn" id="feedbtn">'+ICON.plus+'Feed resources</button><button class="link" id="treeexpand" style="margin-left:14px">Full map '+ICON.ext+'</button></span>')+
-          card("market","Job market",'<a class="link" id="marketlink" href="https://guoguolinlinranger.github.io/radar-monkey/" target="_blank" rel="noopener noreferrer">radar-monkey '+ICON.ext+'</a>')+
           '<div class="grid">'+
             card("vitals","Vitals")+
             card("habits","Habits")+
@@ -899,7 +898,6 @@
       '<div class="vt-attrs">'+(attrs.length?attrs.map(function(a){ return '<div class="at"><span class="k">'+esc(a.name)+'</span><span class="track"><i style="width:'+Math.round(a.xp/maxXp*100)+'%"></i></span><span class="v">'+a.xp+'</span></div>'; }).join(''):'<div class="empty">No XP yet. Log time with <span class="ex">/log start reading</span>.</div>')+'</div>';
 
     renderTrees(d);
-    renderMarket(d);
 
     var hs=d.habits||[]; setMeta("habits", hs.length?String(hs.length):"none");
     document.getElementById("habits").innerHTML=hs.length?'<div class="habits">'+hs.map(function(h){ var days=h.days||[]; var L=["S","M","T","W","T","F","S"];
