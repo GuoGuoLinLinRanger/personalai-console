@@ -444,6 +444,20 @@
   .voicebar.on { display:flex; }
   .voicebar i { width:3px; height:100%; border-radius:3px; background:var(--accent); transform:scaleY(.14); transform-origin:bottom; transition:transform .07s linear; }
 
+  /* applications funnel */
+  .appfunnel { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px; }
+  .appstat { background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-sm); padding:11px 12px; }
+  .appstat .n { font:700 22px var(--disp); line-height:1; font-variant-numeric:tabular-nums; color:var(--text); }
+  .appstat .l { font:500 10px var(--sans); letter-spacing:.08em; text-transform:uppercase; color:var(--faint); margin-top:5px; }
+  .appstat.interview .n { color:var(--accent); } .appstat.offer .n { color:var(--ok); } .appstat.rejected .n { color:var(--faint); }
+  .applist { display:grid; gap:2px; }
+  .approw { display:grid; grid-template-columns:auto 1fr auto; gap:11px; align-items:center; padding:7px 9px; border-radius:var(--r-xs); }
+  .approw:hover { background:var(--surface-2); }
+  .approw .dot { width:8px; height:8px; border-radius:50%; background:var(--amber); flex:none; }
+  .approw .dot.interview { background:var(--accent); } .approw .dot.offer { background:var(--ok); } .approw .dot.rejected { background:var(--faint); opacity:.5; }
+  .approw .c { font:500 13.5px var(--sans); color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .approw .c .r { color:var(--muted); font-weight:400; }
+  .approw .meta { font:400 11px var(--mono); color:var(--faint); white-space:nowrap; } .approw .meta.stale { color:var(--amber); }
+
   @keyframes breathe { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.07); } }
   @keyframes pulse-orb { 0%,100%{ transform:scale(1); filter:brightness(1); } 50%{ transform:scale(1.13); filter:brightness(1.25); } }
   @keyframes spring { from{ opacity:0; transform:scale(.4); } to{ opacity:1; transform:scale(1); } }
@@ -677,6 +691,7 @@
             card("vitals","Vitals")+
             card("habits","Habits")+
           '</div>'+
+          card("apps","Applications",'<button class="feedbtn" id="applogbtn" style="margin-left:auto">'+ICON.plus+'Log one</button>')+
           '<div class="grid">'+
             card("obj","Objectives")+
             card("signals","Signals")+
@@ -708,6 +723,7 @@
     document.getElementById("treeexpand").onclick=openTreeMap;
     document.getElementById("expandbtn").onclick=toggleFull;
     document.getElementById("feedbtn").onclick=function(){ document.getElementById("feed").classList.add("on"); setTimeout(function(){ var t=document.getElementById("feedtext"); if(t) t.focus(); },50); };
+    document.getElementById("applogbtn").onclick=function(){ setView(true); var c=document.getElementById("cmd"); if(c){ c.value="applied to "; c.focus(); autoGrow(c); } };
     document.getElementById("fx").onclick=function(){ document.getElementById("feed").classList.remove("on"); };
     document.getElementById("feedgo").onclick=function(){ var t=document.getElementById("feedtext"); var v=t?t.value:""; if(v.trim()){ feedResources(v); if(t) t.value=""; document.getElementById("feed").classList.remove("on"); } };
     document.getElementById("feed").addEventListener("click",function(e){ if(e.target.id==="feed") document.getElementById("feed").classList.remove("on"); });
@@ -854,6 +870,19 @@
     el.innerHTML=strip+list;
   }
 
+  function renderApps(d){
+    var el=document.getElementById("apps"); if(!el) return; var a=d.applications||{counts:{},list:[]};
+    var c=a.counts||{}; var total=(c.applied||0)+(c.interview||0)+(c.offer||0)+(c.rejected||0);
+    setMeta("apps", total?total+" tracked":"none", (c.offer?"ok":(c.interview?"live":"")));
+    if(!total){ el.innerHTML='<div class="empty">No applications tracked yet. Tell Chaewon <span class="ex">applied to Roame for SWE intern</span>, or they appear automatically as your email replies arrive.</div>'; return; }
+    var funnel='<div class="appfunnel">'+[["applied","Applied"],["interview","Interview"],["offer","Offer"],["rejected","Rejected"]].map(function(s){ return '<div class="appstat '+s[0]+'"><div class="n">'+(c[s[0]]||0)+'</div><div class="l">'+s[1]+'</div></div>'; }).join('')+'</div>';
+    var active=(a.list||[]).filter(function(x){return x.status!=="rejected";}).slice(0,10);
+    var list='<div class="applist">'+(active.length?active.map(function(x){ var stale=x.status==="applied"&&x.ageDays!=null&&x.ageDays>=7;
+      var meta=x.status==="interview"?"interview":x.status==="offer"?"offer":(x.ageDays!=null?x.ageDays+"d":"");
+      return '<div class="approw"><span class="dot '+esc(x.status)+'"></span><span class="c">'+esc(x.company)+(x.role?' <span class="r">'+esc(x.role)+'</span>':'')+'</span><span class="meta'+(stale?' stale':'')+'">'+esc(meta)+(stale?' · follow up':'')+'</span></div>'; }).join(''):'<div class="empty">Nothing active right now.</div>')+'</div>';
+    el.innerHTML=funnel+list;
+  }
+
   function renderData(d){
     DATA=d; lastSync=new Date(); var sy=document.getElementById("sync"); if(sy) sy.textContent=pad(lastSync.getHours())+":"+pad(lastSync.getMinutes());
     var now=Date.now();
@@ -898,6 +927,7 @@
       '<div class="vt-attrs">'+(attrs.length?attrs.map(function(a){ return '<div class="at"><span class="k">'+esc(a.name)+'</span><span class="track"><i style="width:'+Math.round(a.xp/maxXp*100)+'%"></i></span><span class="v">'+a.xp+'</span></div>'; }).join(''):'<div class="empty">No XP yet. Log time with <span class="ex">/log start reading</span>.</div>')+'</div>';
 
     renderTrees(d);
+    renderApps(d);
 
     var hs=d.habits||[]; setMeta("habits", hs.length?String(hs.length):"none");
     document.getElementById("habits").innerHTML=hs.length?'<div class="habits">'+hs.map(function(h){ var days=h.days||[]; var L=["S","M","T","W","T","F","S"];
