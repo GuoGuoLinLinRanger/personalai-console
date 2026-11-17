@@ -444,6 +444,11 @@
   .voicebar.on { display:flex; }
   .voicebar i { width:3px; height:100%; border-radius:3px; background:var(--accent); transform:scaleY(.14); transform-origin:bottom; transition:transform .07s linear; }
 
+  /* call mode */
+  #callbtn.live { color:var(--accent); background:var(--accent-soft); animation:pulse 1.7s ease-in-out infinite; }
+  body.in-call .chat-h .orb, body.in-call .home .ho .orb { box-shadow:0 0 0 1px rgba(255,255,255,.12), 0 0 46px -2px var(--accent-line); }
+  body.in-call .orb-wrap, body.in-call .home .ho { cursor:pointer; }
+
   /* applications funnel */
   .appfunnel { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px; }
   .appstat { background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-sm); padding:11px 12px; }
@@ -548,6 +553,8 @@
   var FUNC = "https://yiybhukkzkbntxotgixz.supabase.co/functions/v1";
   var PERSONA = "Chaewon";
   var token = null, DATA = null, lastSync = null, selDay = 0, refreshTimer = null, globalsBound = false;
+  // Feature 5: hands-free call mode (continuous voice conversation with Chaewon).
+  var callActive = false, recog = null, recBusy = false, micStartViz = null, micStopViz = null, callPrevVoice = null;
   var treeOpen = {}, nodeOpen = null; // skill-tree expansion state, preserved across refreshes
   var homeActive = false;             // chatbot homepage shown until the first message
 
@@ -555,6 +562,8 @@
     speaker:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.8 5.5a9 9 0 0 1 0 13"/></svg>',
     mute:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/></svg>',
     mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+    phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+    hangup:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.15.25-4.6.7v3.1c0 .4-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85a1 1 0 0 1-1.38-.03L.3 13.6a1 1 0 0 1 0-1.4C3.3 9.28 7.42 7.5 12 7.5s8.7 1.78 11.7 4.7a1 1 0 0 1 0 1.4l-2.5 2.82a1 1 0 0 1-1.38.03 12.4 12.4 0 0 0-2.66-1.85.998.998 0 0 1-.56-.9v-3.1A15.7 15.7 0 0 0 12 9z"/></svg>',
     send:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>',
     help:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7"/><circle cx="12" cy="16.4" r=".6" fill="currentColor" stroke="none"/></svg>',
     trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>',
@@ -606,7 +615,9 @@
 
   var STATE="idle";
   function setState(s){ STATE=s; var ws=document.querySelectorAll("[data-orb]"); for(var i=0;i<ws.length;i++) ws[i].setAttribute("data-state",s);
-    var ps=document.getElementById("chatstate"); if(ps){ ps.textContent = s==="offline" ? "offline" : (PERSONA+" · "+s); ps.className="ps"+(s==="offline"?" off":""); } }
+    var ps=document.getElementById("chatstate"); if(ps){ ps.textContent = s==="offline" ? "offline" : (PERSONA+" · "+s); ps.className="ps"+(s==="offline"?" off":""); }
+    // Call mode: once Chaewon finishes (back to idle), listen again for the next turn.
+    if(s==="idle" && callActive && !recBusy) setTimeout(callListen, 300); }
 
   // ── Chaewon's voice ──
   // A natural AI voice from the backend (Gemini TTS) when available, falling back
@@ -710,6 +721,7 @@
               '<button class="sug">what can you do</button></div>'+
             '<div class="voicebar" id="voicebar">'+Array.apply(null,{length:18}).map(function(){return '<i></i>';}).join('')+'</div>'+
             '<div class="inputrow"><textarea id="cmd" rows="1" placeholder="Message '+esc(PERSONA)+'…" autocomplete="off"></textarea>'+
+              '<button class="ci" id="callbtn" title="Call Chaewon">'+ICON.phone+'</button>'+
               '<button class="ci" id="micbtn" title="Talk">'+ICON.mic+'</button>'+
               '<button class="send" id="send" title="Send" aria-label="Send">'+ICON.send+'</button></div>'+
           '</div>'+
@@ -745,6 +757,8 @@
     document.getElementById("tab-dash").onclick=function(){ setView(false); };
     document.getElementById("tab-chat").onclick=function(){ setView(true); };
 
+    var cbn=document.getElementById("callbtn"); if(cbn) cbn.onclick=toggleCall;
+    var presEl=document.getElementById("presence"); if(presEl) presEl.onclick=function(){ if(callActive){ stopSpeak(); if(STATE==="speaking"||STATE==="thinking") setState("idle"); } };
     var vb=document.getElementById("voicebtn");
     function setV(){ vb.classList.toggle("on",voiceOn); vb.innerHTML=voiceOn?ICON.speaker:ICON.mute; vb.title=voiceOn?"Spoken replies on":"Spoken replies off"; }
     setV();
@@ -799,11 +813,42 @@
           try{ document.documentElement.style.setProperty("--vol",(1+avg*0.55).toFixed(3)); }catch(e){}
           vizRaf=requestAnimationFrame(loop); })();
       }).catch(function(){ /* mic denied — the ripple ring still shows "listening" */ }); }
-    rec.onresult=function(e){ sendMsg(e.results[0][0].transcript); };
-    rec.onend=function(){ listening=false; btn.classList.remove("live"); stopViz(); if(STATE==="listening") setState("idle"); };
-    rec.onerror=rec.onend;
-    btn.onclick=function(){ if(listening){ try{rec.stop();}catch(e){} return; } try{ rec.start(); listening=true; btn.classList.add("live"); setState("listening"); setView(true); startViz(); }catch(e){} };
+    rec.onresult=function(e){
+      var res=e.results[e.results.length-1];
+      if(callActive){ if(res && res.isFinal){ var txt=(res[0].transcript||"").trim(); try{rec.stop();}catch(e2){} if(txt) sendMsg(txt); } return; }
+      sendMsg(e.results[0][0].transcript);
+    };
+    rec.onend=function(){ listening=false; recBusy=false; btn.classList.remove("live"); stopViz();
+      if(callActive){ if(STATE!=="thinking" && STATE!=="speaking") setTimeout(callListen, 300); return; }
+      if(STATE==="listening") setState("idle"); };
+    rec.onerror=function(){ listening=false; recBusy=false; btn.classList.remove("live"); stopViz(); if(!callActive && STATE==="listening") setState("idle"); if(callActive && STATE!=="thinking" && STATE!=="speaking") setTimeout(callListen, 500); };
+    // single-tap push-to-talk (non-call mode)
+    btn.onclick=function(){ if(callActive) return; if(listening){ try{rec.stop();}catch(e){} return; } try{ rec.start(); listening=true; recBusy=true; btn.classList.add("live"); setState("listening"); setView(true); startViz(); }catch(e){} };
+    // expose to module scope for call mode
+    recog=rec; micStartViz=startViz; micStopViz=stopViz;
+    rec.__setListening=function(v){ listening=v; };
   }
+
+  // Feature 5: continuous hands-free call with Chaewon. Recognition pauses while
+  // she speaks (no echo) and resumes when she's done; tap the orb to interrupt,
+  // the hang-up button to end. Browser speech + the existing TTS; best in Chrome.
+  function callListen(){ if(!callActive || !recog || recBusy || STATE==="thinking" || STATE==="speaking") return;
+    try{ recog.start(); recBusy=true; if(recog.__setListening) recog.__setListening(true); setState("listening"); if(micStartViz) micStartViz(); }catch(e){ recBusy=false; } }
+  function startCall(){ if(callActive) return; if(!recog){ return; }
+    callActive=true; callPrevVoice=voiceOn; voiceOn=true; // Chaewon must speak during a call
+    document.body.classList.add("in-call"); setView(true);
+    var cb=document.getElementById("callbtn"); if(cb){ cb.innerHTML=ICON.hangup; cb.classList.add("live"); cb.title="End call"; }
+    pushMsg("assistant","<span class=\"sys\">Call started — just talk. Tap the orb to interrupt me, hang up when you're done.</span>",true);
+    callListen();
+  }
+  function endCall(){ if(!callActive) return; callActive=false; recBusy=false;
+    try{ if(recog) recog.stop(); }catch(e){} stopSpeak(); if(micStopViz) micStopViz();
+    voiceOn = callPrevVoice==null ? voiceOn : callPrevVoice;
+    document.body.classList.remove("in-call"); if(STATE!=="offline") setState("idle");
+    var cb=document.getElementById("callbtn"); if(cb){ cb.innerHTML=ICON.phone; cb.classList.remove("live"); cb.title="Call Chaewon"; }
+    var vb=document.getElementById("voicebtn"); if(vb) vb.innerHTML=voiceOn?ICON.speaker:ICON.mute;
+  }
+  function toggleCall(){ if(callActive) endCall(); else startCall(); }
 
   // ── chatbot homepage (the Chaewon pane's resting state) ──
   function greeting(){ var h=new Date().getHours(); return h<5?"Good night":h<12?"Good morning":h<18?"Good afternoon":"Good evening"; }
@@ -850,6 +895,8 @@
       else replies.forEach(function(r){ pushMsg("assistant",r); });
       var joined=replies.join(" ").toLowerCase();
       if(/confirm|commit to google|type the word|unschedule instead|\?\s*$/.test(joined)) confirmChips();
+      // Call mode: if TTS never starts (quota/failure), still resume listening.
+      if(callActive) setTimeout(function(){ if(callActive && STATE==="thinking") setState("idle"); }, 1600);
       refresh();
     }).catch(function(err){ if(t) t.remove(); if(STATE==="thinking") setState(navigator.onLine?"idle":"offline");
       if(err&&err.bad){ pushMsg("assistant",'<span class="sys">Your link is invalid or expired. Sign out and reconnect.</span>',true); }
