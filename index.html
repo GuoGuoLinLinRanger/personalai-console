@@ -443,6 +443,9 @@
   .voicebar { display:none; align-items:flex-end; justify-content:center; gap:3px; height:26px; margin-bottom:11px; }
   .voicebar.on { display:flex; }
   .voicebar i { width:3px; height:100%; border-radius:3px; background:var(--accent); transform:scaleY(.14); transform-origin:bottom; transition:transform .07s linear; }
+  /* premium-voice marker: appears only when ElevenLabs actually produced the reply */
+  .iconbtn.hd { position:relative; overflow:visible; }
+  .iconbtn.hd::after { content:"HD"; position:absolute; top:-4px; right:-4px; font:800 8px/1 var(--sans); letter-spacing:.03em; padding:2px 3px; border-radius:4px; background:var(--accent); color:var(--bg); box-shadow:0 1px 4px rgba(0,0,0,.45); }
 
   /* call mode */
   #callbtn.live { color:var(--accent); background:var(--accent-soft); animation:pulse 1.7s ease-in-out infinite; }
@@ -620,20 +623,21 @@
     if(s==="idle" && callActive && !recBusy) setTimeout(callListen, 300); }
 
   // ── Chaewon's voice ──
-  // A natural AI voice from the backend (Gemini TTS) when available, falling back
-  // to the browser's own voice when the free daily quota runs out. Not a clone of
-  // any real person — a persona voice.
-  var voiceOn = ls("pa_voice")==="1", theVoice=null, curAudio=null;
+  // A natural AI voice from the backend — ElevenLabs when configured (shown as "HD"),
+  // otherwise Gemini — falling back to the browser's own voice if both are unavailable.
+  // Not a clone of any real person; a persona voice.
+  var voiceOn = ls("pa_voice")==="1", theVoice=null, curAudio=null, hdVoice=false;
+  function setHd(){ var vb=document.getElementById("voicebtn"); if(vb) vb.classList.toggle("hd", !!hdVoice && voiceOn); }
   function loadVoice(){ if(!("speechSynthesis" in window)) return; var vs=speechSynthesis.getVoices();
     theVoice = vs.find(function(v){return /ko-?kr|korean/i.test(v.lang+" "+v.name);}) || vs.find(function(v){return /(female|samantha|zira|yuna|heami|sora|aria|jenny|google uk english female)/i.test(v.name);}) || vs.find(function(v){return /^en/i.test(v.lang);}) || vs[0] || null; }
   if("speechSynthesis" in window){ loadVoice(); speechSynthesis.onvoiceschanged=loadVoice; }
   function stopSpeak(){ try{ if(curAudio){ curAudio.pause(); curAudio=null; } }catch(e){} try{ if("speechSynthesis" in window) speechSynthesis.cancel(); }catch(e){} }
-  function browserSpeak(t){ if(!("speechSynthesis" in window)) { if(STATE==="speaking") setState("idle"); return; }
+  function browserSpeak(t){ hdVoice=false; setHd(); if(!("speechSynthesis" in window)) { if(STATE==="speaking") setState("idle"); return; }
     try{ speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(t); if(theVoice) u.voice=theVoice; u.pitch=1.15; u.rate=1.03;
       u.onstart=function(){ setState("speaking"); }; u.onend=u.onerror=function(){ if(STATE==="speaking") setState("idle"); }; speechSynthesis.speak(u);}catch(e){ if(STATE==="speaking") setState("idle"); } }
   function speak(text){ if(!voiceOn) return; var t=stripTags(text).slice(0,600); if(!t||!token) return; stopSpeak();
     fetch(FUNC+"/telegram-webhook?tts=1&u="+encodeURIComponent(token),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:t})})
-      .then(function(r){ if(!r.ok) throw 0; return r.blob(); })
+      .then(function(r){ if(!r.ok) throw 0; hdVoice=(r.headers.get("x-tts-engine")==="elevenlabs"); setHd(); return r.blob(); })
       .then(function(b){ if(!voiceOn) return; var url=URL.createObjectURL(b); var a=new Audio(url); curAudio=a; setState("speaking");
         a.onended=a.onerror=function(){ try{URL.revokeObjectURL(url);}catch(e){} if(curAudio===a) curAudio=null; if(STATE==="speaking") setState("idle"); };
         a.play().catch(function(){ browserSpeak(t); }); })
@@ -762,7 +766,7 @@
     var cbn=document.getElementById("callbtn"); if(cbn) cbn.onclick=toggleCall;
     var presEl=document.getElementById("presence"); if(presEl) presEl.onclick=function(){ if(callActive){ stopSpeak(); if(STATE==="speaking"||STATE==="thinking") setState("idle"); } };
     var vb=document.getElementById("voicebtn");
-    function setV(){ vb.classList.toggle("on",voiceOn); vb.innerHTML=voiceOn?ICON.speaker:ICON.mute; vb.title=voiceOn?"Spoken replies on":"Spoken replies off"; }
+    function setV(){ vb.classList.toggle("on",voiceOn); vb.innerHTML=voiceOn?ICON.speaker:ICON.mute; vb.title=voiceOn?"Spoken replies on":"Spoken replies off"; setHd(); }
     setV();
     vb.onclick=function(){ voiceOn=!voiceOn; ls("pa_voice",voiceOn?"1":"0"); setV(); if(voiceOn){ loadVoice(); speak("Voice on."); } else { stopSpeak(); if(STATE==="speaking") setState("idle"); } };
 
