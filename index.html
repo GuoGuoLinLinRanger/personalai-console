@@ -254,6 +254,10 @@
   .orb::after { content:""; position:absolute; inset:0; border-radius:50%; mix-blend-mode:screen; opacity:.5;
     background:radial-gradient(circle at 68% 74%, rgba(120,150,255,.75), transparent 52%); animation:drift 7s ease-in-out infinite; }
   .orb-ring { position:absolute; inset:-5px; border-radius:50%; border:1.5px solid var(--accent-line); opacity:0; pointer-events:none; }
+  /* Chaewon's avatar: her frames overlay the orb once an avatar/ frame set is published. */
+  .avatar { position:absolute; inset:0; width:100%; height:100%; border-radius:50%; object-fit:cover; opacity:0; transition:opacity .3s ease; pointer-events:none; z-index:3; background:var(--surface-2); }
+  .avatar.show { opacity:1; }
+  .orb-wrap.has-avatar .orb { opacity:0; }
   [data-state="listening"] .orb { animation:none; transform:scale(var(--vol,1)); transition:transform .07s linear; }
   [data-state="listening"] .orb-ring { animation:ripple 1.3s ease-out infinite; opacity:1; }
   [data-state="speaking"] .orb { animation:pulse-orb .6s ease-in-out infinite; }
@@ -617,10 +621,44 @@
   function ls(k,v){ try { if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); } catch(e){ return null; } }
 
   var STATE="idle";
-  function setState(s){ STATE=s; var ws=document.querySelectorAll("[data-orb]"); for(var i=0;i<ws.length;i++) ws[i].setAttribute("data-state",s);
+  function setState(s){ STATE=s; var ws=document.querySelectorAll("[data-orb]"); for(var i=0;i<ws.length;i++) ws[i].setAttribute("data-state",s); if(typeof AV!=="undefined"){try{AV.apply(s);}catch(e){}}
     var ps=document.getElementById("chatstate"); if(ps){ ps.textContent = s==="offline" ? "offline" : (PERSONA+" · "+s); ps.className="ps"+(s==="offline"?" off":""); }
     // Call mode: once Chaewon finishes (back to idle), listen again for the next turn.
     if(s==="idle" && callActive && !recBusy) setTimeout(callListen, 300); }
+
+  // ── Chaewon's avatar ──
+  // If a frame set is published (avatar/*.png in the console repo), play it as her
+  // face: she blinks at rest and her mouth moves from the live amplitude of her own
+  // speech. Falls back silently to the orb when no frames exist yet, so nothing
+  // breaks before the art is added. Frames expected (identical framing, square):
+  //   neutral · blink · talk1 (mouth ajar) · talk2 (mouth open) · listen (optional).
+  var AV = (function(){
+    var F = { neutral:"avatar/neutral.png", blink:"avatar/blink.png", listen:"avatar/listen.png", talk1:"avatar/talk1.png", talk2:"avatar/talk2.png" };
+    var src={}, ready=false, el=null, cur="", blinkT=null, raf=null, ac=null, an=null, buf=null, speaking=false, flapT=null;
+    function base(){ return (STATE==="listening" && src.listen) ? "listen" : "neutral"; }
+    function show(n){ if(!el||!src[n]||cur===n) return; cur=n; el.setAttribute("src", src[n]); }
+    function preload(cb){ var names=Object.keys(F), left=names.length, ok=true;
+      names.forEach(function(n){ var im=new Image();
+        im.onload=function(){ src[n]=F[n]; if(--left===0) cb(ok); };
+        im.onerror=function(){ if(n!=="listen") ok=false; if(--left===0) cb(ok); };
+        im.src=F[n]; }); }
+    function blinkLoop(){ clearTimeout(blinkT); blinkT=setTimeout(function(){
+        if(!speaking && (STATE==="idle"||STATE==="listening")){ show("blink"); setTimeout(function(){ if(!speaking) show(base()); }, 130); }
+        blinkLoop(); }, 2600+Math.random()*3600); }
+    function amp(){ an.getByteFrequencyData(buf); var s=0; for(var i=0;i<buf.length;i++) s+=buf[i]; return s/buf.length/255; }
+    function mouth(){ if(!speaking) return; var a=amp(); show(a>0.20?"talk2":a>0.07?"talk1":"neutral"); raf=requestAnimationFrame(mouth); }
+    function stop(){ speaking=false; if(raf){ cancelAnimationFrame(raf); raf=null; } if(flapT){ clearInterval(flapT); flapT=null; } show(base()); }
+    function feedAudio(a){ if(!ready||!a) return;
+      try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended") ac.resume();
+        var s=ac.createMediaElementSource(a); an=ac.createAnalyser(); an.fftSize=256; s.connect(an); an.connect(ac.destination);
+        buf=new Uint8Array(an.frequencyBinCount); speaking=true; mouth();
+      }catch(e){ flap(true); }
+      a.addEventListener("ended", stop); a.addEventListener("pause", stop); a.addEventListener("error", stop); }
+    function flap(on){ if(!ready) return; if(on){ speaking=true; if(flapT) return; var o=false; flapT=setInterval(function(){ if(!speaking){ clearInterval(flapT); flapT=null; return; } o=!o; show(o?"talk2":"talk1"); }, 150); } else { stop(); } }
+    function apply(){ if(!ready||speaking) return; show(base()); }
+    function init(){ el=document.getElementById("avimg"); if(!el||ready) return; preload(function(ok){ if(!ok) return; ready=true; var w=el.parentNode; if(w) w.classList.add("has-avatar"); el.className="avatar show"; show("neutral"); blinkLoop(); }); }
+    return { init:init, apply:apply, feedAudio:feedAudio, flap:flap };
+  })();
 
   // ── Chaewon's voice ──
   // A natural AI voice from the backend — ElevenLabs when configured (shown as "HD"),
@@ -634,11 +672,11 @@
   function stopSpeak(){ try{ if(curAudio){ curAudio.pause(); curAudio=null; } }catch(e){} try{ if("speechSynthesis" in window) speechSynthesis.cancel(); }catch(e){} }
   function browserSpeak(t){ hdVoice=false; setHd(); if(!("speechSynthesis" in window)) { if(STATE==="speaking") setState("idle"); return; }
     try{ speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(t); if(theVoice) u.voice=theVoice; u.pitch=1.15; u.rate=1.03;
-      u.onstart=function(){ setState("speaking"); }; u.onend=u.onerror=function(){ if(STATE==="speaking") setState("idle"); }; speechSynthesis.speak(u);}catch(e){ if(STATE==="speaking") setState("idle"); } }
+      u.onstart=function(){ setState("speaking"); try{AV.flap(true);}catch(e){} }; u.onend=u.onerror=function(){ try{AV.flap(false);}catch(e){} if(STATE==="speaking") setState("idle"); }; speechSynthesis.speak(u);}catch(e){ if(STATE==="speaking") setState("idle"); } }
   function speak(text){ if(!voiceOn) return; var t=stripTags(text).slice(0,600); if(!t||!token) return; stopSpeak();
     fetch(FUNC+"/telegram-webhook?tts=1&u="+encodeURIComponent(token),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:t})})
       .then(function(r){ if(!r.ok) throw 0; hdVoice=(r.headers.get("x-tts-engine")==="elevenlabs"); setHd(); return r.blob(); })
-      .then(function(b){ if(!voiceOn) return; var url=URL.createObjectURL(b); var a=new Audio(url); curAudio=a; setState("speaking");
+      .then(function(b){ if(!voiceOn) return; var url=URL.createObjectURL(b); var a=new Audio(url); curAudio=a; setState("speaking"); try{AV.feedAudio(a);}catch(e){}
         a.onended=a.onerror=function(){ try{URL.revokeObjectURL(url);}catch(e){} if(curAudio===a) curAudio=null; if(STATE==="speaking") setState("idle"); };
         a.play().catch(function(){ browserSpeak(t); }); })
       .catch(function(){ if(voiceOn) browserSpeak(t); }); }
@@ -715,7 +753,7 @@
           '</div>'+
         '</div></main>'+
         '<aside class="chat">'+
-          '<div class="chat-h"><div class="orb-wrap" id="presence" data-orb data-state="idle">'+orb()+'</div>'+
+          '<div class="chat-h"><div class="orb-wrap" id="presence" data-orb data-state="idle">'+orb()+'<img id="avimg" class="avatar" alt="Chaewon">'+'</div>'+
             '<div class="chat-id"><span class="nm">'+esc(PERSONA)+'</span><span class="ps" id="chatstate">'+esc(PERSONA)+' · idle</span></div>'+
             '<button class="iconbtn chat-expand" id="expandbtn" title="Fullscreen (Chaewon only)">'+ICON.expand+'</button>'+
             '<button class="iconbtn" id="voicebtn" title="Spoken replies"></button></div>'+
@@ -765,6 +803,7 @@
 
     var cbn=document.getElementById("callbtn"); if(cbn) cbn.onclick=toggleCall;
     var presEl=document.getElementById("presence"); if(presEl) presEl.onclick=function(){ if(callActive){ stopSpeak(); if(STATE==="speaking"||STATE==="thinking") setState("idle"); } };
+    try{ AV.init(); }catch(e){}
     var vb=document.getElementById("voicebtn");
     function setV(){ vb.classList.toggle("on",voiceOn); vb.innerHTML=voiceOn?ICON.speaker:ICON.mute; vb.title=voiceOn?"Spoken replies on":"Spoken replies off"; setHd(); }
     setV();
