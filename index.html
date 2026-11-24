@@ -255,33 +255,33 @@
     background:radial-gradient(circle at 68% 74%, rgba(120,150,255,.75), transparent 52%); animation:drift 7s ease-in-out infinite; }
   .orb-ring { position:absolute; inset:-5px; border-radius:50%; border:1.5px solid var(--accent-line); opacity:0; pointer-events:none; }
   /* Chaewon's avatar: her frames overlay the orb once an avatar/ frame set is published. */
-  .avatar { position:absolute; inset:0; width:100%; height:100%; border-radius:50%; object-fit:cover; opacity:0; transition:opacity .3s ease; pointer-events:none; z-index:3; background:var(--surface-2); }
+  .avatar { position:absolute; inset:0; width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:top center; opacity:0; transition:opacity .3s ease; pointer-events:none; z-index:3; background:var(--surface-2); }
   .avatar.show { opacity:1; }
   .orb-wrap.has-avatar .orb { opacity:0; }
   /* Chaewon as a roaming on-screen companion: she floats, can be dragged, wanders,
      reacts, and speaks in a bubble. Travels the console viewport (a web app can't
      roam the OS desktop — that would need a native/Electron wrapper). */
-  .companion { position:fixed; left:0; top:0; z-index:60; width:74px; height:74px; transform:translate(20px,20px); transition:transform .6s cubic-bezier(.22,1,.36,1); will-change:transform; touch-action:none; }
+  .companion { position:fixed; left:0; top:0; z-index:60; width:98px; height:142px; transform:translate(20px,20px); transition:transform .6s cubic-bezier(.22,1,.36,1); will-change:transform; touch-action:none; }
   .companion.drag { transition:none; }
   .comp-inner { position:relative; width:100%; height:100%; cursor:grab; animation:comp-float 4.5s ease-in-out infinite; }
   .comp-inner:active { cursor:grabbing; }
-  .comp-inner .orb { width:74px; height:74px; }
-  .comp-av { position:absolute; inset:0; width:100%; height:100%; border-radius:50%; object-fit:cover; background:var(--surface-2); box-shadow:0 10px 30px -6px rgba(0,0,0,.6), 0 0 0 1px var(--line-2); }
-  .comp-inner.has-avatar .orb { opacity:0; }
+  .comp-inner .orb { position:absolute; top:0; left:50%; transform:translateX(-50%); width:84px; height:84px; }
+  .comp-av { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:bottom center; background:transparent; filter:drop-shadow(0 10px 14px rgba(0,0,0,.5)); }
+  .comp-inner.has-avatar .orb, .comp-inner.has-avatar .orb-ring { display:none; }
   .comp-inner .zzz { position:absolute; top:-2px; right:-2px; font:700 12px var(--sans); color:var(--muted); opacity:0; }
   .comp-inner.asleep { animation:none; filter:saturate(.6) brightness(.82); }
   .comp-inner.asleep .zzz { opacity:1; animation:zzz 2s ease-in-out infinite; }
   .comp-inner.celebrate { animation:comp-hop .45s ease 2; }
-  .comp-bubble { position:absolute; bottom:86px; left:50%; transform:translateX(-50%); width:max-content; max-width:230px; background:var(--surface-2); color:var(--text); border:1px solid var(--line-2); border-radius:14px; border-bottom-right-radius:4px; padding:8px 11px; font-size:13px; line-height:1.42; opacity:0; pointer-events:none; transition:opacity .2s ease; box-shadow:0 12px 34px -10px rgba(0,0,0,.55); }
+  .comp-bubble { position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); width:max-content; max-width:230px; background:var(--surface-2); color:var(--text); border:1px solid var(--line-2); border-radius:14px; border-bottom-right-radius:4px; padding:8px 11px; font-size:13px; line-height:1.42; opacity:0; pointer-events:none; transition:opacity .2s ease; box-shadow:0 12px 34px -10px rgba(0,0,0,.55); }
   .comp-bubble.show { opacity:1; }
-  .comp-menu { position:absolute; bottom:84px; display:none; flex-direction:column; gap:2px; min-width:150px; background:var(--surface-2); border:1px solid var(--line-2); border-radius:12px; padding:6px; box-shadow:0 14px 40px -12px rgba(0,0,0,.6); z-index:4; }
+  .comp-menu { position:absolute; bottom:calc(100% + 6px); display:none; flex-direction:column; gap:2px; min-width:150px; background:var(--surface-2); border:1px solid var(--line-2); border-radius:12px; padding:6px; box-shadow:0 14px 40px -12px rgba(0,0,0,.6); z-index:4; }
   .comp-menu.show { display:flex; }
   .comp-menu button { background:transparent; border:0; color:var(--text); font:500 13px var(--sans); text-align:left; padding:8px 10px; border-radius:8px; cursor:pointer; }
   .comp-menu button:hover { background:var(--surface-3); }
   @keyframes comp-float { 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-6px) } }
   @keyframes comp-hop { 0%,100%{ transform:translateY(0) } 35%{ transform:translateY(-18px) } }
   @keyframes zzz { 0%,100%{ transform:translateY(0); opacity:.4 } 50%{ transform:translateY(-4px); opacity:1 } }
-  @media (max-width:640px){ .companion{ width:58px; height:58px } .comp-inner .orb{ width:58px; height:58px } }
+  @media (max-width:640px){ .companion{ width:80px; height:116px } .comp-inner .orb{ width:68px; height:68px } }
   @media (prefers-reduced-motion:reduce){ .companion{ transition:none } .comp-inner{ animation:none } .comp-inner.celebrate{ animation:none } }
   [data-state="listening"] .orb { animation:none; transform:scale(var(--vol,1)); transition:transform .07s linear; }
   [data-state="listening"] .orb-ring { animation:ripple 1.3s ease-out infinite; opacity:1; }
@@ -681,16 +681,19 @@
             : mouth==="frown"
               ? '<path d="M90 133 q10 -8 20 0" stroke="#c9566f" stroke-width="3.6" fill="none" stroke-linecap="round"/>'
               : '<path d="M90 127 q10 8 20 0" stroke="#c9566f" stroke-width="3.6" fill="none" stroke-linecap="round"/>';
-    var s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
-      +'<circle cx="100" cy="100" r="94" fill="#ff3d74" opacity="0.1"/>'
-      +'<rect x="40" y="72" width="26" height="108" rx="13" fill="#241d30"/><rect x="134" y="72" width="26" height="108" rx="13" fill="#241d30"/>'
-      +'<rect x="128" y="78" width="10" height="86" rx="5" fill="#ff6f9c"/>'
-      +'<ellipse cx="100" cy="94" rx="70" ry="76" fill="#241d30"/>'
-      +'<ellipse cx="100" cy="106" rx="50" ry="56" fill="#ffd8bf"/>'
+    var s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300">'
+      +'<rect x="86" y="150" width="28" height="30" rx="11" fill="#ffd8bf"/>'           // neck
+      +'<path d="M46 300 C46 208 72 176 100 176 C128 176 154 208 154 300 Z" fill="#3a3157"/>'  // shoulders/top
+      +'<path d="M72 300 C72 238 84 198 100 198 C116 198 128 238 128 300 Z" fill="#2b2440"/>'  // centre placket
+      +'<path d="M88 180 L100 200 L112 180" fill="none" stroke="#ff6f9c" stroke-width="5" stroke-linecap="round"/>' // collar
+      +'<rect x="40" y="72" width="26" height="134" rx="13" fill="#241d30"/><rect x="134" y="72" width="26" height="134" rx="13" fill="#241d30"/>' // hair over shoulders
+      +'<rect x="128" y="78" width="10" height="96" rx="5" fill="#ff6f9c"/>'             // pink streak
+      +'<ellipse cx="100" cy="94" rx="70" ry="76" fill="#241d30"/>'                      // hair back
+      +'<ellipse cx="100" cy="106" rx="50" ry="56" fill="#ffd8bf"/>'                     // face
       +'<ellipse cx="74" cy="122" rx="10" ry="5" fill="#ff93b1" opacity="0.5"/><ellipse cx="126" cy="122" rx="10" ry="5" fill="#ff93b1" opacity="0.5"/>'
-      +'<path d="M52 86 Q100 44 148 86 Q150 70 128 66 Q112 52 100 70 Q88 52 72 66 Q50 70 52 86 Z" fill="#241d30"/>'
+      +'<path d="M52 86 Q100 44 148 86 Q150 70 128 66 Q112 52 100 70 Q88 52 72 66 Q50 70 52 86 Z" fill="#241d30"/>' // bangs
       + B + E + M
-      +'<circle cx="46" cy="120" r="9" fill="#1c1727"/><circle cx="46" cy="120" r="4" fill="#ff3d74"/>'
+      +'<circle cx="46" cy="120" r="9" fill="#1c1727"/><circle cx="46" cy="120" r="4" fill="#ff3d74"/>'  // headset earpiece
       +'</svg>';
     return 'data:image/svg+xml;utf8,'+encodeURIComponent(s);
   }
@@ -732,7 +735,7 @@
   // simple commands ("come here", "hide", "follow me", "go to sleep", "celebrate").
   var COMP = (function(){
     var root=null, inner=null, bubble=null, bubbleT=null, menu=null, x=0, y=0, dragging=false, sx=0, sy=0, ox=0, oy=0, moved=false, wanderT=null, idleT=null, follow=false, mv=null, hidden=false, asleep=false, lastUp=0, tapT=null, wasTouch=false;
-    function bounds(){ var s=root?root.offsetWidth:74, m=12; return { minx:m, miny:m, maxx:Math.max(m,window.innerWidth-s-m), maxy:Math.max(m,window.innerHeight-s-m) }; }
+    function bounds(){ var w=root?root.offsetWidth:98, h=root?root.offsetHeight:142, m=12; return { minx:m, miny:m, maxx:Math.max(m,window.innerWidth-w-m), maxy:Math.max(m,window.innerHeight-h-m) }; }
     function clampPos(){ var b=bounds(); if(x<b.minx)x=b.minx; if(x>b.maxx)x=b.maxx; if(y<b.miny)y=b.miny; if(y>b.maxy)y=b.maxy; }
     function paint(){ if(root) root.style.transform="translate("+Math.round(x)+"px,"+Math.round(y)+"px)"; }
     function moveTo(nx,ny){ x=nx; y=ny; clampPos(); paint(); }
