@@ -258,6 +258,27 @@
   .avatar { position:absolute; inset:0; width:100%; height:100%; border-radius:50%; object-fit:cover; opacity:0; transition:opacity .3s ease; pointer-events:none; z-index:3; background:var(--surface-2); }
   .avatar.show { opacity:1; }
   .orb-wrap.has-avatar .orb { opacity:0; }
+  /* Chaewon as a roaming on-screen companion: she floats, can be dragged, wanders,
+     reacts, and speaks in a bubble. Travels the console viewport (a web app can't
+     roam the OS desktop — that would need a native/Electron wrapper). */
+  .companion { position:fixed; left:0; top:0; z-index:60; width:74px; height:74px; transform:translate(20px,20px); transition:transform .6s cubic-bezier(.22,1,.36,1); will-change:transform; touch-action:none; }
+  .companion.drag { transition:none; }
+  .comp-inner { position:relative; width:100%; height:100%; cursor:grab; animation:comp-float 4.5s ease-in-out infinite; }
+  .comp-inner:active { cursor:grabbing; }
+  .comp-inner .orb { width:74px; height:74px; }
+  .comp-av { position:absolute; inset:0; width:100%; height:100%; border-radius:50%; object-fit:cover; background:var(--surface-2); box-shadow:0 10px 30px -6px rgba(0,0,0,.6), 0 0 0 1px var(--line-2); }
+  .comp-inner.has-avatar .orb { opacity:0; }
+  .comp-inner .zzz { position:absolute; top:-2px; right:-2px; font:700 12px var(--sans); color:var(--muted); opacity:0; }
+  .comp-inner.asleep { animation:none; filter:saturate(.6) brightness(.82); }
+  .comp-inner.asleep .zzz { opacity:1; animation:zzz 2s ease-in-out infinite; }
+  .comp-inner.celebrate { animation:comp-hop .45s ease 2; }
+  .comp-bubble { position:absolute; bottom:86px; left:50%; transform:translateX(-50%); width:max-content; max-width:230px; background:var(--surface-2); color:var(--text); border:1px solid var(--line-2); border-radius:14px; border-bottom-right-radius:4px; padding:8px 11px; font-size:13px; line-height:1.42; opacity:0; pointer-events:none; transition:opacity .2s ease; box-shadow:0 12px 34px -10px rgba(0,0,0,.55); }
+  .comp-bubble.show { opacity:1; }
+  @keyframes comp-float { 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-6px) } }
+  @keyframes comp-hop { 0%,100%{ transform:translateY(0) } 35%{ transform:translateY(-18px) } }
+  @keyframes zzz { 0%,100%{ transform:translateY(0); opacity:.4 } 50%{ transform:translateY(-4px); opacity:1 } }
+  @media (max-width:640px){ .companion{ width:58px; height:58px } .comp-inner .orb{ width:58px; height:58px } }
+  @media (prefers-reduced-motion:reduce){ .companion{ transition:none } .comp-inner{ animation:none } .comp-inner.celebrate{ animation:none } }
   [data-state="listening"] .orb { animation:none; transform:scale(var(--vol,1)); transition:transform .07s linear; }
   [data-state="listening"] .orb-ring { animation:ripple 1.3s ease-out infinite; opacity:1; }
   [data-state="speaking"] .orb { animation:pulse-orb .6s ease-in-out infinite; }
@@ -621,7 +642,7 @@
   function ls(k,v){ try { if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); } catch(e){ return null; } }
 
   var STATE="idle";
-  function setState(s){ STATE=s; var ws=document.querySelectorAll("[data-orb]"); for(var i=0;i<ws.length;i++) ws[i].setAttribute("data-state",s); if(typeof AV!=="undefined"){try{AV.apply(s);}catch(e){}}
+  function setState(s){ STATE=s; var ws=document.querySelectorAll("[data-orb]"); for(var i=0;i<ws.length;i++) ws[i].setAttribute("data-state",s); if(typeof AV!=="undefined"){try{AV.apply(s);}catch(e){}} if(typeof COMP!=="undefined"){try{COMP.onState(s);}catch(e){}}
     var ps=document.getElementById("chatstate"); if(ps){ ps.textContent = s==="offline" ? "offline" : (PERSONA+" · "+s); ps.className="ps"+(s==="offline"?" off":""); }
     // Call mode: once Chaewon finishes (back to idle), listen again for the next turn.
     if(s==="idle" && callActive && !recBusy) setTimeout(callListen, 300); }
@@ -632,15 +653,42 @@
   // speech. Falls back silently to the orb when no frames exist yet, so nothing
   // breaks before the art is added. Frames expected (identical framing, square):
   //   neutral · blink · talk1 (mouth ajar) · talk2 (mouth open) · listen (optional).
+  // A stylized placeholder face (SVG) so Chaewon is visible and animating TODAY.
+  // Each real PNG you publish to avatar/<name>.png overrides its placeholder.
+  function phFace(eyes, mouth){
+    var E = eyes==="closed"
+      ? '<path d="M71 97 q11 7 22 0" stroke="#2b2440" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M107 97 q11 7 22 0" stroke="#2b2440" stroke-width="4" fill="none" stroke-linecap="round"/>'
+      : '<ellipse cx="82" cy="99" rx="'+(eyes==="wide"?9:8)+'" ry="'+(eyes==="wide"?13:11)+'" fill="#38304a"/><ellipse cx="118" cy="99" rx="'+(eyes==="wide"?9:8)+'" ry="'+(eyes==="wide"?13:11)+'" fill="#38304a"/><circle cx="85" cy="94" r="2.6" fill="#fff"/><circle cx="121" cy="94" r="2.6" fill="#fff"/>';
+    var M = mouth==="open"
+      ? '<ellipse cx="100" cy="129" rx="11" ry="9" fill="#9c3550"/><ellipse cx="100" cy="133" rx="6" ry="3.5" fill="#ff7a9c"/>'
+      : mouth==="small"
+        ? '<ellipse cx="100" cy="129" rx="7" ry="5" fill="#9c3550"/>'
+        : '<path d="M90 127 q10 8 20 0" stroke="#c9566f" stroke-width="3.6" fill="none" stroke-linecap="round"/>';
+    var s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">'
+      +'<circle cx="100" cy="100" r="94" fill="#ff3d74" opacity="0.1"/>'
+      +'<rect x="40" y="72" width="26" height="108" rx="13" fill="#241d30"/><rect x="134" y="72" width="26" height="108" rx="13" fill="#241d30"/>'
+      +'<rect x="128" y="78" width="10" height="86" rx="5" fill="#ff6f9c"/>'
+      +'<ellipse cx="100" cy="94" rx="70" ry="76" fill="#241d30"/>'
+      +'<ellipse cx="100" cy="106" rx="50" ry="56" fill="#ffd8bf"/>'
+      +'<ellipse cx="74" cy="122" rx="10" ry="5" fill="#ff93b1" opacity="0.5"/><ellipse cx="126" cy="122" rx="10" ry="5" fill="#ff93b1" opacity="0.5"/>'
+      +'<path d="M52 86 Q100 44 148 86 Q150 70 128 66 Q112 52 100 70 Q88 52 72 66 Q50 70 52 86 Z" fill="#241d30"/>'
+      + E + M
+      +'<circle cx="46" cy="120" r="9" fill="#1c1727"/><circle cx="46" cy="120" r="4" fill="#ff3d74"/>'
+      +'</svg>';
+    return 'data:image/svg+xml;utf8,'+encodeURIComponent(s);
+  }
+
   var AV = (function(){
     var F = { neutral:"avatar/neutral.png", blink:"avatar/blink.png", listen:"avatar/listen.png", talk1:"avatar/talk1.png", talk2:"avatar/talk2.png" };
-    var src={}, ready=false, el=null, cur="", blinkT=null, raf=null, ac=null, an=null, buf=null, speaking=false, flapT=null;
+    var PLACE = { neutral:phFace("open","closed"), blink:phFace("closed","closed"), talk1:phFace("open","small"), talk2:phFace("open","open"), listen:phFace("wide","closed") };
+    var src={}, ready=false, els=null, cur="", blinkT=null, raf=null, ac=null, an=null, buf=null, speaking=false, flapT=null;
     function base(){ return (STATE==="listening" && src.listen) ? "listen" : "neutral"; }
-    function show(n){ if(!el||!src[n]||cur===n) return; cur=n; el.setAttribute("src", src[n]); }
-    function preload(cb){ var names=Object.keys(F), left=names.length, ok=true;
+    function show(n){ if(!els||!src[n]||cur===n) return; cur=n; for(var i=0;i<els.length;i++) els[i].setAttribute("src", src[n]); }
+    function preload(cb){ var names=Object.keys(F), left=names.length;
+      function done(){ if(--left===0) cb(); }
       names.forEach(function(n){ var im=new Image();
-        im.onload=function(){ src[n]=F[n]; if(--left===0) cb(ok); };
-        im.onerror=function(){ if(n!=="listen") ok=false; if(--left===0) cb(ok); };
+        im.onload=function(){ src[n]=F[n]; done(); };
+        im.onerror=function(){ src[n]=PLACE[n]||PLACE.neutral; done(); }; // no real frame yet → placeholder
         im.src=F[n]; }); }
     function blinkLoop(){ clearTimeout(blinkT); blinkT=setTimeout(function(){
         if(!speaking && (STATE==="idle"||STATE==="listening")){ show("blink"); setTimeout(function(){ if(!speaking) show(base()); }, 130); }
@@ -656,8 +704,60 @@
       a.addEventListener("ended", stop); a.addEventListener("pause", stop); a.addEventListener("error", stop); }
     function flap(on){ if(!ready) return; if(on){ speaking=true; if(flapT) return; var o=false; flapT=setInterval(function(){ if(!speaking){ clearInterval(flapT); flapT=null; return; } o=!o; show(o?"talk2":"talk1"); }, 150); } else { stop(); } }
     function apply(){ if(!ready||speaking) return; show(base()); }
-    function init(){ el=document.getElementById("avimg"); if(!el||ready) return; preload(function(ok){ if(!ok) return; ready=true; var w=el.parentNode; if(w) w.classList.add("has-avatar"); el.className="avatar show"; show("neutral"); blinkLoop(); }); }
+    function init(){ els=document.querySelectorAll(".avframe"); if(!els.length) return; preload(function(){ ready=true; for(var i=0;i<els.length;i++){ var w=els[i].parentNode; if(w) w.classList.add("has-avatar"); if(els[i].className.indexOf("show")<0) els[i].className+=" show"; } show("neutral"); blinkLoop(); }); }
     return { init:init, apply:apply, feedAudio:feedAudio, flap:flap };
+  })();
+
+  // Chaewon the on-screen companion: a draggable, wandering floating avatar that
+  // reflects her state, speaks in a bubble, reacts, sleeps when idle, and takes
+  // simple commands ("come here", "hide", "follow me", "go to sleep", "celebrate").
+  var COMP = (function(){
+    var root=null, inner=null, bubble=null, bubbleT=null, x=0, y=0, dragging=false, sx=0, sy=0, ox=0, oy=0, moved=false, wanderT=null, idleT=null, follow=false, mv=null, hidden=false, asleep=false;
+    function bounds(){ var s=root?root.offsetWidth:74, m=12; return { minx:m, miny:m, maxx:Math.max(m,window.innerWidth-s-m), maxy:Math.max(m,window.innerHeight-s-m) }; }
+    function clampPos(){ var b=bounds(); if(x<b.minx)x=b.minx; if(x>b.maxx)x=b.maxx; if(y<b.miny)y=b.miny; if(y>b.maxy)y=b.maxy; }
+    function paint(){ if(root) root.style.transform="translate("+Math.round(x)+"px,"+Math.round(y)+"px)"; }
+    function moveTo(nx,ny){ x=nx; y=ny; clampPos(); paint(); }
+    function corner(){ var b=bounds(); moveTo(b.maxx,b.maxy); }
+    function wander(){ clearTimeout(wanderT); wanderT=setTimeout(function(){
+        if(!hidden && !dragging && !asleep && !follow && STATE!=="speaking" && STATE!=="thinking"){ var b=bounds(); moveTo(b.minx+Math.random()*(b.maxx-b.minx), b.miny+Math.random()*(b.maxy-b.miny)); }
+        wander(); }, 7000+Math.random()*6000); }
+    function sleepArm(){ clearTimeout(idleT); idleT=setTimeout(function(){ if(STATE==="idle" && !dragging && !follow){ asleep=true; if(inner) inner.classList.add("asleep"); } }, 90000); }
+    function wake(){ if(asleep){ asleep=false; if(inner) inner.classList.remove("asleep"); } sleepArm(); }
+    function say(txt){ if(!bubble) return; txt=(txt||"").replace(/<[^>]+>/g,"").trim(); if(!txt) return; if(txt.length>150) txt=txt.slice(0,148)+"…"; bubble.textContent=txt;
+      if(x > window.innerWidth/2){ bubble.style.left="auto"; bubble.style.right="0"; bubble.style.transform="none"; } else { bubble.style.left="0"; bubble.style.right="auto"; bubble.style.transform="none"; }
+      bubble.classList.add("show"); clearTimeout(bubbleT); bubbleT=setTimeout(function(){ bubble.classList.remove("show"); }, Math.min(9000, 2800+txt.length*42)); wake(); }
+    function react(kind){ if(!inner) return; wake(); if(kind==="happy"){ inner.classList.remove("celebrate"); void inner.offsetWidth; inner.classList.add("celebrate"); setTimeout(function(){ inner.classList.remove("celebrate"); }, 1000); } }
+    function onState(s){ if(s==="speaking"||s==="listening") wake(); if(s==="idle") sleepArm(); }
+    function show_(){ hidden=false; if(root) root.style.display=""; try{localStorage.setItem("pa_comp","1");}catch(e){} }
+    function hide_(){ hidden=true; if(root) root.style.display="none"; try{localStorage.setItem("pa_comp","0");}catch(e){} }
+    function followMouse(on){ follow=on; if(on){ wake(); document.addEventListener("mousemove", mv); } else document.removeEventListener("mousemove", mv); }
+    function command(text){ var t=(text||"").toLowerCase().trim();
+      if(/^(come here|come|here chaewon|come to me|over here)\b/.test(t)){ var b=bounds(); moveTo(b.minx+(b.maxx-b.minx)*0.5, b.miny+(b.maxy-b.miny)*0.34); wake(); return "On my way."; }
+      if(/^(go away|hide|get out of the way|leave me alone|minimi[sz]e|disappear)\b/.test(t)){ hide_(); return "Hiding — say “come back” when you want me."; }
+      if(/^(come back|show yourself|where are you)\b/.test(t)){ show_(); corner(); return "Here!"; }
+      if(/\b(corner|dock|tuck (yourself )?away)\b/.test(t)){ show_(); corner(); return "Tucked in the corner."; }
+      if(/^(follow me|follow)\b/.test(t)){ followMouse(true); return "Following you."; }
+      if(/\b(stop following|stay( there| put)?|hold still)\b/.test(t)){ followMouse(false); return "Staying put."; }
+      if(/\b(celebrate|do a dance|^dance\b|hype me)\b/.test(t)){ react("happy"); return "✨"; }
+      if(/\b(go to sleep|take a nap|^sleep\b)\b/.test(t)){ asleep=true; if(inner) inner.classList.add("asleep"); return "Resting — poke me anytime."; }
+      if(/\b(wake up|^wake\b)\b/.test(t)){ wake(); return "I’m up!"; }
+      return false; }
+    function down(e){ dragging=true; moved=false; if(root) root.classList.add("drag"); var p=e.touches?e.touches[0]:e; sx=p.clientX; sy=p.clientY; ox=x; oy=y; wake(); if(e.cancelable) e.preventDefault(); }
+    function move(e){ if(!dragging) return; var p=e.touches?e.touches[0]:e; var dx=p.clientX-sx, dy=p.clientY-sy; if(Math.abs(dx)+Math.abs(dy)>4) moved=true; x=ox+dx; y=oy+dy; clampPos(); paint(); }
+    function up(){ if(!dragging) return; dragging=false; if(root) root.classList.remove("drag"); if(!moved) tap(); }
+    function tap(){ if(callActive){ stopSpeak(); if(STATE==="speaking"||STATE==="thinking") setState("idle"); return; } setView(true); var c=document.getElementById("cmd"); if(c) c.focus(); }
+    function init(){ if(root) return; root=document.createElement("div"); root.className="companion"; root.id="companion";
+      root.innerHTML='<div class="comp-inner" data-orb data-state="idle"><span class="orb"></span><span class="orb-ring"></span><img class="avframe comp-av" alt="Chaewon"><span class="zzz">z</span></div><div class="comp-bubble"></div>';
+      document.body.appendChild(root); inner=root.querySelector(".comp-inner"); bubble=root.querySelector(".comp-bubble");
+      mv=function(e){ var b=bounds(); x=Math.min(b.maxx,Math.max(b.minx,e.clientX-root.offsetWidth/2)); y=Math.min(b.maxy,Math.max(b.miny,e.clientY+18)); paint(); };
+      var b=bounds(); x=b.maxx; y=b.maxy; paint();
+      inner.addEventListener("mousedown",down); document.addEventListener("mousemove",move); document.addEventListener("mouseup",up);
+      inner.addEventListener("touchstart",down,{passive:false}); document.addEventListener("touchmove",move,{passive:false}); document.addEventListener("touchend",up);
+      window.addEventListener("resize",function(){ clampPos(); paint(); });
+      try{ if(localStorage.getItem("pa_comp")==="0") hide_(); }catch(e){}
+      wander(); sleepArm();
+    }
+    return { init:init, command:command, say:say, react:react, onState:onState, show:show_, hide:hide_ };
   })();
 
   // ── Chaewon's voice ──
@@ -753,7 +853,7 @@
           '</div>'+
         '</div></main>'+
         '<aside class="chat">'+
-          '<div class="chat-h"><div class="orb-wrap" id="presence" data-orb data-state="idle">'+orb()+'<img id="avimg" class="avatar" alt="Chaewon">'+'</div>'+
+          '<div class="chat-h"><div class="orb-wrap" id="presence" data-orb data-state="idle">'+orb()+'<img id="avimg" class="avatar avframe" alt="Chaewon">'+'</div>'+
             '<div class="chat-id"><span class="nm">'+esc(PERSONA)+'</span><span class="ps" id="chatstate">'+esc(PERSONA)+' · idle</span></div>'+
             '<button class="iconbtn chat-expand" id="expandbtn" title="Fullscreen (Chaewon only)">'+ICON.expand+'</button>'+
             '<button class="iconbtn" id="voicebtn" title="Spoken replies"></button></div>'+
@@ -803,7 +903,7 @@
 
     var cbn=document.getElementById("callbtn"); if(cbn) cbn.onclick=toggleCall;
     var presEl=document.getElementById("presence"); if(presEl) presEl.onclick=function(){ if(callActive){ stopSpeak(); if(STATE==="speaking"||STATE==="thinking") setState("idle"); } };
-    try{ AV.init(); }catch(e){}
+    try{ COMP.init(); AV.init(); }catch(e){}
     var vb=document.getElementById("voicebtn");
     function setV(){ vb.classList.toggle("on",voiceOn); vb.innerHTML=voiceOn?ICON.speaker:ICON.mute; vb.title=voiceOn?"Spoken replies on":"Spoken replies off"; setHd(); }
     setV();
@@ -929,6 +1029,8 @@
   var busy=false;
   function sendMsg(text){
     text=(text||"").trim(); if(!text||busy) return;
+    if(typeof COMP!=="undefined"){ var cmd=null; try{ cmd=COMP.command(text); }catch(e){}
+      if(cmd){ setView(true); pushMsg("user",text); if(cmd!==true){ pushMsg("assistant",cmd); try{COMP.say(cmd);}catch(e){} } return; } }
     if(/^\s*(help|\/help|what can you do\??|what do you do\??|capabilities\??|what can you help( me)? with\??)\s*$/i.test(text)){
       setView(true); pushMsg("user",text); pushMsg("assistant",CAPS,true); return; }
     setView(true); pushMsg("user",text); busy=true;
@@ -939,6 +1041,7 @@
       if(!replies.length) pushMsg("assistant",'<span class="sys">Done.</span>',true);
       else replies.forEach(function(r){ pushMsg("assistant",r); });
       var joined=replies.join(" ").toLowerCase();
+      if(typeof COMP!=="undefined" && replies.length){ try{ COMP.say(replies[0]); if(/unlock|\boffer\b|congrat|\bxp\b|nice work|well done|level up|streak|completed|all set|great job/i.test(joined)) COMP.react("happy"); }catch(e){} }
       if(/confirm|commit to google|type the word|unschedule instead|\?\s*$/.test(joined)) confirmChips();
       // Call mode: if TTS never starts (quota/failure), still resume listening.
       if(callActive) setTimeout(function(){ if(callActive && STATE==="thinking") setState("idle"); }, 1600);
