@@ -263,7 +263,7 @@
      roam the OS desktop — that would need a native/Electron wrapper). */
   .companion { position:fixed; left:0; top:0; z-index:60; width:98px; height:142px; transform:translate(20px,20px); transition:transform .6s cubic-bezier(.22,1,.36,1); will-change:transform; touch-action:none; }
   .companion.drag { transition:none; }
-  .comp-inner { position:relative; width:100%; height:100%; cursor:grab; animation:comp-float 4.5s ease-in-out infinite; }
+  .comp-inner { position:relative; width:100%; height:100%; cursor:grab; transform-origin:50% 92%; animation:comp-idle 6.5s ease-in-out infinite; }
   .comp-inner:active { cursor:grabbing; }
   .comp-inner .orb { position:absolute; top:0; left:50%; transform:translateX(-50%); width:84px; height:84px; }
   .comp-av { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:bottom center; background:transparent; filter:drop-shadow(0 10px 14px rgba(0,0,0,.5)); }
@@ -278,7 +278,7 @@
   .comp-menu.show { display:flex; }
   .comp-menu button { background:transparent; border:0; color:var(--text); font:500 13px var(--sans); text-align:left; padding:8px 10px; border-radius:8px; cursor:pointer; }
   .comp-menu button:hover { background:var(--surface-3); }
-  @keyframes comp-float { 0%,100%{ transform:translateY(0) } 50%{ transform:translateY(-6px) } }
+  @keyframes comp-idle { 0%{ transform:rotate(-2deg) translateY(0) } 25%{ transform:rotate(0deg) translateY(-5px) } 50%{ transform:rotate(2.2deg) translateY(-2px) } 75%{ transform:rotate(0deg) translateY(-6px) } 100%{ transform:rotate(-2deg) translateY(0) } }
   @keyframes comp-hop { 0%,100%{ transform:translateY(0) } 35%{ transform:translateY(-18px) } }
   @keyframes zzz { 0%,100%{ transform:translateY(0); opacity:.4 } 50%{ transform:translateY(-4px); opacity:1 } }
   @media (max-width:640px){ .companion{ width:80px; height:116px } .comp-inner .orb{ width:68px; height:68px } }
@@ -699,11 +699,11 @@
   }
 
   var AV = (function(){
-    var F = { neutral:"avatar/neutral.png", blink:"avatar/blink.png", listen:"avatar/listen.png", talk1:"avatar/talk1.png", talk2:"avatar/talk2.png", happy:"avatar/emote_happy.png", surprised:"avatar/emote_surprised.png", sad:"avatar/emote_sad.png" };
+    var F = { neutral:"avatar/neutral.png", blink:"avatar/blink.png", listen:"avatar/listen.png", talk1:"avatar/talk1.png", talk2:"avatar/talk2.png", happy:"avatar/emote_happy.png", surprised:"avatar/emote_surprised.png", sad:"avatar/emote_sad.png", think:"avatar/think.png", wave:"avatar/wave.png" };
     var PLACE = { neutral:phFace("open","closed"), blink:phFace("closed","closed"), talk1:phFace("open","small"), talk2:phFace("open","open"), listen:phFace("wide","closed"),
-      happy:phFace("happy","grin"), surprised:phFace("wide","o","up"), sad:phFace("open","frown","down") };
+      happy:phFace("happy","grin"), surprised:phFace("wide","o","up"), sad:phFace("open","frown","down"), think:phFace("open","closed"), wave:phFace("happy","grin") };
     var src={}, ready=false, els=null, cur="", blinkT=null, raf=null, ac=null, an=null, buf=null, speaking=false, flapT=null, emoting=false, emoteT=null;
-    function base(){ return (STATE==="listening" && src.listen) ? "listen" : "neutral"; }
+    function base(){ if(STATE==="thinking" && src.think) return "think"; if(STATE==="listening" && src.listen) return "listen"; return "neutral"; }
     function show(n){ if(!els||!src[n]||cur===n) return; cur=n; for(var i=0;i<els.length;i++) els[i].setAttribute("src", src[n]); }
     function preload(cb){ var names=Object.keys(F), left=names.length, real={};
       // Partial frame sets look consistent: a missing frame falls back to the real
@@ -790,7 +790,7 @@
       inner.addEventListener("touchstart",down,{passive:false}); document.addEventListener("touchmove",move,{passive:false}); document.addEventListener("touchend",up);
       window.addEventListener("resize",function(){ clampPos(); paint(); });
       try{ if(localStorage.getItem("pa_comp")==="0") hide_(); }catch(e){}
-      try{ var td=new Date().toDateString(); if(localStorage.getItem("pa_wave")!==td){ localStorage.setItem("pa_wave",td); setTimeout(function(){ if(!hidden){ react("happy"); say("Hey — I’m here whenever you need me."); } }, 1500); } }catch(e){}
+      try{ var td=new Date().toDateString(); if(localStorage.getItem("pa_wave")!==td){ localStorage.setItem("pa_wave",td); setTimeout(function(){ if(!hidden){ try{AV.emote("wave");}catch(e){} say("Hey — I’m here whenever you need me."); } }, 1500); } }catch(e){}
       wander(); sleepArm();
     }
     return { init:init, command:command, say:say, react:react, onState:onState, show:show_, hide:hide_ };
