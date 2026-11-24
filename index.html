@@ -742,7 +742,7 @@
       a.addEventListener("ended", stop); a.addEventListener("pause", stop); a.addEventListener("error", stop); }
     function flap(on){ if(!ready) return; if(on){ speaking=true; if(flapT) return; var o=false; flapT=setInterval(function(){ if(!speaking){ clearInterval(flapT); flapT=null; return; } o=!o; show(o?"talk2":"talk1"); }, 150); } else { stop(); } }
     function apply(){ if(!ready||speaking) return; posing=false; show(base()); }
-    function activate(){ for(var i=0;i<els.length;i++){ var w=els[i].parentNode; if(w) w.classList.add("has-avatar"); if(els[i].className.indexOf("show")<0) els[i].className+=" show"; } show("neutral"); }
+    function activate(){ cur=""; for(var i=0;i<els.length;i++){ var w=els[i].parentNode; if(w) w.classList.add("has-avatar"); if(els[i].className.indexOf("show")<0) els[i].className+=" show"; } show("neutral"); } // cur="" forces the re-created header img to repaint on reconnect
     function init(){ els=document.querySelectorAll(".avframe"); if(!els.length) return; if(ready){ activate(); return; } preload(function(){ ready=true; activate(); blinkLoop(); poseLoop(); }); }
     return { init:init, apply:apply, feedAudio:feedAudio, flap:flap, emote:emote };
   })();
