@@ -261,9 +261,9 @@
   /* Chaewon as a roaming on-screen companion: she floats, can be dragged, wanders,
      reacts, and speaks in a bubble. Travels the console viewport (a web app can't
      roam the OS desktop — that would need a native/Electron wrapper). */
-  .companion { position:fixed; left:0; top:0; z-index:60; width:98px; height:142px; transform:translate(20px,20px); transition:transform .6s cubic-bezier(.22,1,.36,1); will-change:transform; touch-action:none; }
+  .companion { position:fixed; left:0; top:0; z-index:60; width:98px; height:142px; transform:translate(20px,20px); transition:transform .6s cubic-bezier(.22,1,.36,1); will-change:transform; touch-action:none; pointer-events:none; }
   .companion.drag { transition:none; }
-  .comp-inner { position:relative; width:100%; height:100%; cursor:grab; transform-origin:50% 92%; animation:comp-idle 6.5s ease-in-out infinite; }
+  .comp-inner { position:relative; width:100%; height:100%; cursor:grab; transform-origin:50% 92%; animation:comp-idle 6.5s ease-in-out infinite; pointer-events:auto; }
   .comp-inner:active { cursor:grabbing; }
   .comp-inner .orb { position:absolute; top:0; left:50%; transform:translateX(-50%); width:84px; height:84px; }
   .comp-av { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:bottom center; background:transparent; filter:drop-shadow(0 10px 14px rgba(0,0,0,.5)); }
@@ -274,7 +274,7 @@
   .comp-inner.celebrate { animation:comp-hop .45s ease 2; }
   .comp-bubble { position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); width:max-content; max-width:230px; background:var(--surface-2); color:var(--text); border:1px solid var(--line-2); border-radius:14px; border-bottom-right-radius:4px; padding:8px 11px; font-size:13px; line-height:1.42; opacity:0; pointer-events:none; transition:opacity .2s ease; box-shadow:0 12px 34px -10px rgba(0,0,0,.55); }
   .comp-bubble.show { opacity:1; }
-  .comp-menu { position:absolute; bottom:calc(100% + 6px); display:none; flex-direction:column; gap:2px; min-width:150px; background:var(--surface-2); border:1px solid var(--line-2); border-radius:12px; padding:6px; box-shadow:0 14px 40px -12px rgba(0,0,0,.6); z-index:4; }
+  .comp-menu { position:absolute; bottom:calc(100% + 6px); display:none; flex-direction:column; gap:2px; min-width:150px; background:var(--surface-2); border:1px solid var(--line-2); border-radius:12px; padding:6px; box-shadow:0 14px 40px -12px rgba(0,0,0,.6); z-index:4; pointer-events:auto; }
   .comp-menu.show { display:flex; }
   .comp-menu button { background:transparent; border:0; color:var(--text); font:500 13px var(--sans); text-align:left; padding:8px 10px; border-radius:8px; cursor:pointer; }
   .comp-menu button:hover { background:var(--surface-3); }
@@ -698,12 +698,15 @@
     return 'data:image/svg+xml;utf8,'+encodeURIComponent(s);
   }
 
+  // Respect the OS "reduce motion" setting for the roaming/idle movement below.
+  var reduceMotion = false; try { reduceMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch(e) {}
+
   var AV = (function(){
     var F = { neutral:"avatar/neutral.png", blink:"avatar/blink.png", listen:"avatar/listen.png", talk1:"avatar/talk1.png", talk2:"avatar/talk2.png", happy:"avatar/emote_happy.png", surprised:"avatar/emote_surprised.png", sad:"avatar/emote_sad.png", think:"avatar/think.png", wave:"avatar/wave.png", idle1:"avatar/idle1.png", idle2:"avatar/idle2.png" };
     var PLACE = { neutral:phFace("open","closed"), blink:phFace("closed","closed"), talk1:phFace("open","small"), talk2:phFace("open","open"), listen:phFace("wide","closed"),
       happy:phFace("happy","grin"), surprised:phFace("wide","o","up"), sad:phFace("open","frown","down"), think:phFace("open","closed"), wave:phFace("happy","grin"), idle1:phFace("open","closed"), idle2:phFace("open","closed") };
     var IDLE_POSES = ["idle1", "idle2"]; // she drifts into these occasionally while idle (only when the real frame exists)
-    var src={}, real={}, ready=false, els=null, cur="", blinkT=null, raf=null, ac=null, an=null, buf=null, speaking=false, flapT=null, emoting=false, emoteT=null, posing=false, poseT=null, poseRevert=null;
+    var src={}, real={}, ready=false, els=null, cur="", blinkT=null, raf=null, ac=null, an=null, buf=null, speaking=false, flapT=null, emoting=false, emoteT=null, posing=false, poseT=null, poseRevert=null, srcNode=null;
     function base(){ if(STATE==="thinking" && src.think) return "think"; if(STATE==="listening" && src.listen) return "listen"; return "neutral"; }
     function show(n){ if(!els||!src[n]||cur===n) return; cur=n; for(var i=0;i<els.length;i++) els[i].setAttribute("src", src[n]); }
     function preload(cb){ var names=Object.keys(F), left=names.length; real={};
@@ -720,24 +723,27 @@
     function emote(kind){ if(!ready||!src[kind]||speaking) return; emoting=true; show(kind); clearTimeout(emoteT); emoteT=setTimeout(function(){ emoting=false; if(!speaking) show(base()); }, 1500); }
     // Occasionally shift into an idle pose (arms crossed, touching hair) and back.
     function poseLoop(){ clearTimeout(poseT); poseT=setTimeout(function(){
-        if(ready && STATE==="idle" && !speaking && !emoting && !posing){
+        if(ready && !reduceMotion && STATE==="idle" && !speaking && !emoting && !posing){
           var avail=[]; for(var i=0;i<IDLE_POSES.length;i++){ if(real[IDLE_POSES[i]]) avail.push(IDLE_POSES[i]); }
           if(avail.length){ posing=true; show(avail[Math.floor(Math.random()*avail.length)]);
             clearTimeout(poseRevert); poseRevert=setTimeout(function(){ posing=false; if(STATE==="idle" && !speaking && !emoting) show(base()); }, 4200); }
         }
         poseLoop(); }, 15000+Math.random()*12000); }
     function amp(){ an.getByteFrequencyData(buf); var s=0; for(var i=0;i<buf.length;i++) s+=buf[i]; return s/buf.length/255; }
-    function mouth(){ if(!speaking) return; var a=amp(); show(a>0.20?"talk2":a>0.07?"talk1":"neutral"); raf=requestAnimationFrame(mouth); }
-    function stop(){ speaking=false; if(raf){ cancelAnimationFrame(raf); raf=null; } if(flapT){ clearInterval(flapT); flapT=null; } show(base()); }
+    function mouth(){ if(!speaking) return; var a=amp(); show(a>0.20?"talk2":"talk1"); raf=requestAnimationFrame(mouth); } // never snap fully shut mid-speech
+    function stop(){ speaking=false; if(raf){ cancelAnimationFrame(raf); raf=null; } if(flapT){ clearInterval(flapT); flapT=null; }
+      try{ if(srcNode){ srcNode.disconnect(); srcNode=null; } if(an){ an.disconnect(); } }catch(e){} // release WebAudio nodes so they don't pile up
+      show(base()); }
     function feedAudio(a){ if(!ready||!a) return;
       try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)(); if(ac.state==="suspended") ac.resume();
-        var s=ac.createMediaElementSource(a); an=ac.createAnalyser(); an.fftSize=256; s.connect(an); an.connect(ac.destination);
+        var s=ac.createMediaElementSource(a); srcNode=s; an=ac.createAnalyser(); an.fftSize=256; s.connect(an); an.connect(ac.destination);
         buf=new Uint8Array(an.frequencyBinCount); speaking=true; mouth();
       }catch(e){ flap(true); }
       a.addEventListener("ended", stop); a.addEventListener("pause", stop); a.addEventListener("error", stop); }
     function flap(on){ if(!ready) return; if(on){ speaking=true; if(flapT) return; var o=false; flapT=setInterval(function(){ if(!speaking){ clearInterval(flapT); flapT=null; return; } o=!o; show(o?"talk2":"talk1"); }, 150); } else { stop(); } }
     function apply(){ if(!ready||speaking) return; posing=false; show(base()); }
-    function init(){ els=document.querySelectorAll(".avframe"); if(!els.length) return; preload(function(){ ready=true; for(var i=0;i<els.length;i++){ var w=els[i].parentNode; if(w) w.classList.add("has-avatar"); if(els[i].className.indexOf("show")<0) els[i].className+=" show"; } show("neutral"); blinkLoop(); poseLoop(); }); }
+    function activate(){ for(var i=0;i<els.length;i++){ var w=els[i].parentNode; if(w) w.classList.add("has-avatar"); if(els[i].className.indexOf("show")<0) els[i].className+=" show"; } show("neutral"); }
+    function init(){ els=document.querySelectorAll(".avframe"); if(!els.length) return; if(ready){ activate(); return; } preload(function(){ ready=true; activate(); blinkLoop(); poseLoop(); }); }
     return { init:init, apply:apply, feedAudio:feedAudio, flap:flap, emote:emote };
   })();
 
@@ -745,55 +751,62 @@
   // reflects her state, speaks in a bubble, reacts, sleeps when idle, and takes
   // simple commands ("come here", "hide", "follow me", "go to sleep", "celebrate").
   var COMP = (function(){
-    var root=null, inner=null, bubble=null, bubbleT=null, menu=null, x=0, y=0, dragging=false, sx=0, sy=0, ox=0, oy=0, moved=false, wanderT=null, idleT=null, follow=false, mv=null, hidden=false, asleep=false, lastUp=0, tapT=null, wasTouch=false;
+    var root=null, inner=null, bubble=null, bubbleT=null, menu=null, x=0, y=0, dragging=false, sx=0, sy=0, ox=0, oy=0, moved=false, wanderT=null, idleT=null, follow=false, mv=null, hidden=false, asleep=false, lastUp=0, tapT=null, wasTouch=false, concealed=false;
     function bounds(){ var w=root?root.offsetWidth:98, h=root?root.offsetHeight:142, m=12; return { minx:m, miny:m, maxx:Math.max(m,window.innerWidth-w-m), maxy:Math.max(m,window.innerHeight-h-m) }; }
     function clampPos(){ var b=bounds(); if(x<b.minx)x=b.minx; if(x>b.maxx)x=b.maxx; if(y<b.miny)y=b.miny; if(y>b.maxy)y=b.maxy; }
     function paint(){ if(root) root.style.transform="translate("+Math.round(x)+"px,"+Math.round(y)+"px)"; }
     function moveTo(nx,ny){ x=nx; y=ny; clampPos(); paint(); }
     function corner(){ var b=bounds(); moveTo(b.maxx,b.maxy); }
     function wander(){ clearTimeout(wanderT); wanderT=setTimeout(function(){
-        if(!hidden && !dragging && !asleep && !follow && STATE!=="speaking" && STATE!=="thinking"){ var b=bounds(); moveTo(b.minx+Math.random()*(b.maxx-b.minx), b.miny+Math.random()*(b.maxy-b.miny)); }
+        if(!hidden && !concealed && !reduceMotion && !dragging && !asleep && !follow && STATE!=="speaking" && STATE!=="thinking"){ var b=bounds(); moveTo(b.minx+Math.random()*(b.maxx-b.minx), b.miny+Math.random()*(b.maxy-b.miny)*0.55); } // stay in the upper area, clear of the composer/tab bar
         wander(); }, 7000+Math.random()*6000); }
     function sleepArm(){ clearTimeout(idleT); idleT=setTimeout(function(){ if(STATE==="idle" && !dragging && !follow){ asleep=true; if(inner) inner.classList.add("asleep"); } }, 90000); }
     function wake(){ if(asleep){ asleep=false; if(inner) inner.classList.remove("asleep"); } sleepArm(); }
     function say(txt){ if(!bubble) return; txt=(txt||"").replace(/<[^>]+>/g,"").trim(); if(!txt) return; if(txt.length>150) txt=txt.slice(0,148)+"…"; bubble.textContent=txt;
       if(x > window.innerWidth/2){ bubble.style.left="auto"; bubble.style.right="0"; bubble.style.transform="none"; } else { bubble.style.left="0"; bubble.style.right="auto"; bubble.style.transform="none"; }
+      if(y < window.innerHeight*0.4){ bubble.style.top="calc(100% + 6px)"; bubble.style.bottom="auto"; } else { bubble.style.top="auto"; bubble.style.bottom="calc(100% + 6px)"; }
       bubble.classList.add("show"); clearTimeout(bubbleT); bubbleT=setTimeout(function(){ bubble.classList.remove("show"); }, Math.min(9000, 2800+txt.length*42)); wake(); }
     function react(kind){ if(!inner) return; kind=kind||"happy"; wake(); try{ AV.emote(kind); }catch(e){} if(kind==="happy"){ inner.classList.remove("celebrate"); void inner.offsetWidth; inner.classList.add("celebrate"); setTimeout(function(){ inner.classList.remove("celebrate"); }, 1000); } }
     function onState(s){ if(s==="speaking"||s==="listening") wake(); if(s==="idle") sleepArm(); }
     function show_(){ hidden=false; if(root) root.style.display=""; try{localStorage.setItem("pa_comp","1");}catch(e){} }
     function hide_(){ hidden=true; if(root) root.style.display="none"; try{localStorage.setItem("pa_comp","0");}catch(e){} }
     function followMouse(on){ follow=on; if(on){ wake(); document.addEventListener("mousemove", mv); } else document.removeEventListener("mousemove", mv); }
+    // Only fire when the whole message IS the command (anchored start+end), so real
+    // tasks like "remind me to celebrate mom's birthday" aren't swallowed.
     function command(text){ var t=(text||"").toLowerCase().trim();
-      if(/^(come here|come|here chaewon|come to me|over here)\b/.test(t)){ var b=bounds(); moveTo(b.minx+(b.maxx-b.minx)*0.5, b.miny+(b.maxy-b.miny)*0.34); wake(); return "On my way."; }
-      if(/^(go away|hide|get out of the way|leave me alone|minimi[sz]e|disappear)\b/.test(t)){ hide_(); return "Hiding — say “come back” when you want me."; }
-      if(/^(come back|show yourself|where are you)\b/.test(t)){ show_(); corner(); return "Here!"; }
-      if(/\b(corner|dock|tuck (yourself )?away)\b/.test(t)){ show_(); corner(); return "Tucked in the corner."; }
-      if(/^(follow me|follow)\b/.test(t)){ followMouse(true); return "Following you."; }
-      if(/\b(stop following|stay( there| put)?|hold still)\b/.test(t)){ followMouse(false); return "Staying put."; }
-      if(/\b(celebrate|do a dance|^dance\b|hype me)\b/.test(t)){ react("happy"); return "✨"; }
-      if(/\b(go to sleep|take a nap|^sleep\b)\b/.test(t)){ asleep=true; if(inner) inner.classList.add("asleep"); return "Resting — poke me anytime."; }
-      if(/\b(wake up|^wake\b)\b/.test(t)){ wake(); return "I’m up!"; }
+      if(/^(come here|come to me|over here|here chaewon)[\s!.]*$/.test(t)){ var b=bounds(); moveTo(b.minx+(b.maxx-b.minx)*0.5, b.miny+(b.maxy-b.miny)*0.30); wake(); return "On my way."; }
+      if(/^(go away|hide|get out of the way|leave me alone|minimi[sz]e|disappear)[\s!.]*$/.test(t)){ hide_(); return "Hiding — say “come back” when you want me."; }
+      if(/^(come back|show yourself|where are you)[\s!.?]*$/.test(t)){ show_(); corner(); return "Here!"; }
+      if(/^(go to the corner|tuck (yourself )?away|dock|corner)[\s!.]*$/.test(t)){ show_(); corner(); return "Tucked in the corner."; }
+      if(/^(follow me|follow)[\s!.]*$/.test(t)){ followMouse(true); return "Following you."; }
+      if(/^(stop following|stay there|stay put|hold still)[\s!.]*$/.test(t)){ followMouse(false); return "Staying put."; }
+      if(/^(celebrate|do a dance|hype me)[\s!.]*$/.test(t)){ react("happy"); return "✨"; }
+      if(/^(go to sleep|take a nap)[\s!.]*$/.test(t)){ asleep=true; if(inner) inner.classList.add("asleep"); return "Resting — poke me anytime."; }
+      if(/^(wake up)[\s!.]*$/.test(t)){ wake(); return "I’m up!"; }
       return false; }
     function down(e){ dragging=true; moved=false; wasTouch=!!e.touches; if(root) root.classList.add("drag"); var p=e.touches?e.touches[0]:e; sx=p.clientX; sy=p.clientY; ox=x; oy=y; wake(); if(e.cancelable) e.preventDefault(); }
     function move(e){ if(!dragging) return; var p=e.touches?e.touches[0]:e; var dx=p.clientX-sx, dy=p.clientY-sy; if(Math.abs(dx)+Math.abs(dy)>4) moved=true; x=ox+dx; y=oy+dy; clampPos(); paint(); }
-    function snapEdge(){ var b=bounds(), s=(root?root.offsetWidth:74); x=((x+s/2) < window.innerWidth/2) ? b.minx : b.maxx; paint(); }
+    function snapEdge(){ var b=bounds(), s=(root?root.offsetWidth:98); x=((x+s/2) < window.innerWidth/2) ? b.minx : b.maxx; paint(); }
     function up(){ if(!dragging) return; dragging=false; if(root) root.classList.remove("drag");
       if(moved){ snapEdge(); return; }
       var now=Date.now(); if(wasTouch && now-lastUp<330){ clearTimeout(tapT); lastUp=0; openMenu(); return; } // touch double-tap → menu
       lastUp=now; clearTimeout(tapT); tapT=setTimeout(tap, 300); }
     function tap(){ if(callActive){ stopSpeak(); if(STATE==="speaking"||STATE==="thinking") setState("idle"); return; } setView(true); var c=document.getElementById("cmd"); if(c) c.focus(); }
-    function openMenu(){ if(!menu) return; if(menu.classList.contains("show")){ closeMenu(); return; } if(x > window.innerWidth/2){ menu.style.left="auto"; menu.style.right="0"; } else { menu.style.left="0"; menu.style.right="auto"; } menu.classList.add("show"); wake(); }
+    function openMenu(){ if(!menu) return; if(menu.classList.contains("show")){ closeMenu(); return; } if(x > window.innerWidth/2){ menu.style.left="auto"; menu.style.right="0"; } else { menu.style.left="0"; menu.style.right="auto"; } if(y < window.innerHeight*0.4){ menu.style.top="calc(100% + 6px)"; menu.style.bottom="auto"; } else { menu.style.top="auto"; menu.style.bottom="calc(100% + 6px)"; } menu.classList.add("show"); wake(); }
     function closeMenu(){ if(menu) menu.classList.remove("show"); }
-    function init(){ if(root) return; root=document.createElement("div"); root.className="companion"; root.id="companion";
+    // Hide the companion on sign-out WITHOUT persisting a user "hidden" preference.
+    function conceal(){ concealed=true; if(root) root.style.display="none"; closeMenu(); }
+    function init(){ if(root){ if(!hidden) root.style.display=""; concealed=false; return; } root=document.createElement("div"); root.className="companion"; root.id="companion";
       root.innerHTML='<div class="comp-inner" data-orb data-state="idle"><span class="orb"></span><span class="orb-ring"></span><img class="avframe comp-av" alt="Chaewon"><span class="zzz">z</span></div><div class="comp-bubble"></div>'+
         '<div class="comp-menu"><button data-cmd="plan my day">Plan my day</button><button data-cmd="what should I do now">What now</button><button data-cmd="show my applications">Applications</button><button data-act="hide">Hide</button></div>';
       document.body.appendChild(root); inner=root.querySelector(".comp-inner"); bubble=root.querySelector(".comp-bubble"); menu=root.querySelector(".comp-menu");
+      inner.setAttribute("tabindex","0"); inner.setAttribute("role","button"); inner.setAttribute("aria-label","Chaewon — open quick actions");
+      inner.addEventListener("keydown",function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openMenu(); } else if(e.key==="Escape"){ closeMenu(); } });
       menu.addEventListener("mousedown",function(e){ e.stopPropagation(); });
       menu.addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b) return; closeMenu(); var act=b.getAttribute("data-act"); if(act==="hide"){ hide_(); return; } var c=b.getAttribute("data-cmd"); if(c){ try{ sendMsg(c); }catch(e2){} } });
       document.addEventListener("mousedown",function(e){ if(menu && menu.classList.contains("show") && !root.contains(e.target)) closeMenu(); });
       mv=function(e){ var b=bounds(); x=Math.min(b.maxx,Math.max(b.minx,e.clientX-root.offsetWidth/2)); y=Math.min(b.maxy,Math.max(b.miny,e.clientY+18)); paint(); };
-      var b=bounds(); x=b.maxx; y=b.maxy; paint();
+      var b=bounds(); x=b.maxx; y=b.miny+(b.maxy-b.miny)*0.22; paint(); // start upper-right, clear of the composer
       inner.addEventListener("mousedown",down); document.addEventListener("mousemove",move); document.addEventListener("mouseup",up);
       inner.addEventListener("dblclick",function(e){ if(e.cancelable) e.preventDefault(); clearTimeout(tapT); openMenu(); });
       inner.addEventListener("touchstart",down,{passive:false}); document.addEventListener("touchmove",move,{passive:false}); document.addEventListener("touchend",up);
@@ -802,7 +815,7 @@
       try{ var td=new Date().toDateString(); if(localStorage.getItem("pa_wave")!==td){ localStorage.setItem("pa_wave",td); setTimeout(function(){ if(!hidden){ try{AV.emote("wave");}catch(e){} say("Hey — I’m here whenever you need me."); } }, 1500); } }catch(e){}
       wander(); sleepArm();
     }
-    return { init:init, command:command, say:say, react:react, onState:onState, show:show_, hide:hide_ };
+    return { init:init, command:command, say:say, react:react, onState:onState, show:show_, hide:hide_, conceal:conceal };
   })();
 
   // ── Chaewon's voice ──
@@ -832,7 +845,7 @@
   function apiData(){ return fetch(FUNC+"/dashboard?json=1&u="+encodeURIComponent(token)).then(function(r){ if(r.status===401||r.status===404) throw {bad:true}; if(!r.ok) throw {net:true}; return r.json(); }); }
   function apiCmd(text){ return fetch(FUNC+"/telegram-webhook?web=1&u="+encodeURIComponent(token),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text:text})}).then(function(r){ if(r.status===401||r.status===404) throw {bad:true}; if(!r.ok) throw {net:true}; return r.json(); }); }
 
-  function signOut(){ if(refreshTimer){ clearInterval(refreshTimer); refreshTimer=null; } try{localStorage.removeItem("pa_token");}catch(e){} token=null; showGate(); }
+  function signOut(){ if(refreshTimer){ clearInterval(refreshTimer); refreshTimer=null; } try{localStorage.removeItem("pa_token");}catch(e){} token=null; try{ COMP.conceal(); }catch(e){} showGate(); }
 
   var CAPS =
     '<p class="caps-intro">I run your schedule, tasks and progress from here — talk or type. I handle these specific things (tap an example to try it):</p><div class="caps">'+
