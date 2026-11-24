@@ -705,11 +705,13 @@
     var src={}, ready=false, els=null, cur="", blinkT=null, raf=null, ac=null, an=null, buf=null, speaking=false, flapT=null, emoting=false, emoteT=null;
     function base(){ return (STATE==="listening" && src.listen) ? "listen" : "neutral"; }
     function show(n){ if(!els||!src[n]||cur===n) return; cur=n; for(var i=0;i<els.length;i++) els[i].setAttribute("src", src[n]); }
-    function preload(cb){ var names=Object.keys(F), left=names.length;
-      function done(){ if(--left===0) cb(); }
+    function preload(cb){ var names=Object.keys(F), left=names.length, real={};
+      // Partial frame sets look consistent: a missing frame falls back to the real
+      // neutral image when it exists, and only to the drawn placeholder otherwise.
+      function done(){ if(--left===0){ if(real.neutral){ for(var k in F){ if(!real[k]) src[k]=src.neutral; } } cb(); } }
       names.forEach(function(n){ var im=new Image();
-        im.onload=function(){ src[n]=F[n]; done(); };
-        im.onerror=function(){ src[n]=PLACE[n]||PLACE.neutral; done(); }; // no real frame yet → placeholder
+        im.onload=function(){ src[n]=F[n]; real[n]=1; done(); };
+        im.onerror=function(){ src[n]=PLACE[n]||PLACE.neutral; done(); };
         im.src=F[n]; }); }
     function blinkLoop(){ clearTimeout(blinkT); blinkT=setTimeout(function(){
         if(!speaking && !emoting && (STATE==="idle"||STATE==="listening")){ show("blink"); setTimeout(function(){ if(!speaking && !emoting) show(base()); }, 130); }
