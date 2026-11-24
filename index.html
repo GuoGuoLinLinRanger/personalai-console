@@ -699,13 +699,14 @@
   }
 
   var AV = (function(){
-    var F = { neutral:"avatar/neutral.png", blink:"avatar/blink.png", listen:"avatar/listen.png", talk1:"avatar/talk1.png", talk2:"avatar/talk2.png", happy:"avatar/emote_happy.png", surprised:"avatar/emote_surprised.png", sad:"avatar/emote_sad.png", think:"avatar/think.png", wave:"avatar/wave.png" };
+    var F = { neutral:"avatar/neutral.png", blink:"avatar/blink.png", listen:"avatar/listen.png", talk1:"avatar/talk1.png", talk2:"avatar/talk2.png", happy:"avatar/emote_happy.png", surprised:"avatar/emote_surprised.png", sad:"avatar/emote_sad.png", think:"avatar/think.png", wave:"avatar/wave.png", idle1:"avatar/idle1.png", idle2:"avatar/idle2.png" };
     var PLACE = { neutral:phFace("open","closed"), blink:phFace("closed","closed"), talk1:phFace("open","small"), talk2:phFace("open","open"), listen:phFace("wide","closed"),
-      happy:phFace("happy","grin"), surprised:phFace("wide","o","up"), sad:phFace("open","frown","down"), think:phFace("open","closed"), wave:phFace("happy","grin") };
-    var src={}, ready=false, els=null, cur="", blinkT=null, raf=null, ac=null, an=null, buf=null, speaking=false, flapT=null, emoting=false, emoteT=null;
+      happy:phFace("happy","grin"), surprised:phFace("wide","o","up"), sad:phFace("open","frown","down"), think:phFace("open","closed"), wave:phFace("happy","grin"), idle1:phFace("open","closed"), idle2:phFace("open","closed") };
+    var IDLE_POSES = ["idle1", "idle2"]; // she drifts into these occasionally while idle (only when the real frame exists)
+    var src={}, real={}, ready=false, els=null, cur="", blinkT=null, raf=null, ac=null, an=null, buf=null, speaking=false, flapT=null, emoting=false, emoteT=null, posing=false, poseT=null, poseRevert=null;
     function base(){ if(STATE==="thinking" && src.think) return "think"; if(STATE==="listening" && src.listen) return "listen"; return "neutral"; }
     function show(n){ if(!els||!src[n]||cur===n) return; cur=n; for(var i=0;i<els.length;i++) els[i].setAttribute("src", src[n]); }
-    function preload(cb){ var names=Object.keys(F), left=names.length, real={};
+    function preload(cb){ var names=Object.keys(F), left=names.length; real={};
       // Partial frame sets look consistent: a missing frame falls back to the real
       // neutral image when it exists, and only to the drawn placeholder otherwise.
       function done(){ if(--left===0){ if(real.neutral){ for(var k in F){ if(!real[k]) src[k]=src.neutral; } } cb(); } }
@@ -714,9 +715,17 @@
         im.onerror=function(){ src[n]=PLACE[n]||PLACE.neutral; done(); };
         im.src=F[n]; }); }
     function blinkLoop(){ clearTimeout(blinkT); blinkT=setTimeout(function(){
-        if(!speaking && !emoting && (STATE==="idle"||STATE==="listening")){ show("blink"); setTimeout(function(){ if(!speaking && !emoting) show(base()); }, 130); }
+        if(!speaking && !emoting && !posing && (STATE==="idle"||STATE==="listening")){ show("blink"); setTimeout(function(){ if(!speaking && !emoting && !posing) show(base()); }, 130); }
         blinkLoop(); }, 2600+Math.random()*3600); }
     function emote(kind){ if(!ready||!src[kind]||speaking) return; emoting=true; show(kind); clearTimeout(emoteT); emoteT=setTimeout(function(){ emoting=false; if(!speaking) show(base()); }, 1500); }
+    // Occasionally shift into an idle pose (arms crossed, touching hair) and back.
+    function poseLoop(){ clearTimeout(poseT); poseT=setTimeout(function(){
+        if(ready && STATE==="idle" && !speaking && !emoting && !posing){
+          var avail=[]; for(var i=0;i<IDLE_POSES.length;i++){ if(real[IDLE_POSES[i]]) avail.push(IDLE_POSES[i]); }
+          if(avail.length){ posing=true; show(avail[Math.floor(Math.random()*avail.length)]);
+            clearTimeout(poseRevert); poseRevert=setTimeout(function(){ posing=false; if(STATE==="idle" && !speaking && !emoting) show(base()); }, 4200); }
+        }
+        poseLoop(); }, 15000+Math.random()*12000); }
     function amp(){ an.getByteFrequencyData(buf); var s=0; for(var i=0;i<buf.length;i++) s+=buf[i]; return s/buf.length/255; }
     function mouth(){ if(!speaking) return; var a=amp(); show(a>0.20?"talk2":a>0.07?"talk1":"neutral"); raf=requestAnimationFrame(mouth); }
     function stop(){ speaking=false; if(raf){ cancelAnimationFrame(raf); raf=null; } if(flapT){ clearInterval(flapT); flapT=null; } show(base()); }
@@ -727,8 +736,8 @@
       }catch(e){ flap(true); }
       a.addEventListener("ended", stop); a.addEventListener("pause", stop); a.addEventListener("error", stop); }
     function flap(on){ if(!ready) return; if(on){ speaking=true; if(flapT) return; var o=false; flapT=setInterval(function(){ if(!speaking){ clearInterval(flapT); flapT=null; return; } o=!o; show(o?"talk2":"talk1"); }, 150); } else { stop(); } }
-    function apply(){ if(!ready||speaking) return; show(base()); }
-    function init(){ els=document.querySelectorAll(".avframe"); if(!els.length) return; preload(function(){ ready=true; for(var i=0;i<els.length;i++){ var w=els[i].parentNode; if(w) w.classList.add("has-avatar"); if(els[i].className.indexOf("show")<0) els[i].className+=" show"; } show("neutral"); blinkLoop(); }); }
+    function apply(){ if(!ready||speaking) return; posing=false; show(base()); }
+    function init(){ els=document.querySelectorAll(".avframe"); if(!els.length) return; preload(function(){ ready=true; for(var i=0;i<els.length;i++){ var w=els[i].parentNode; if(w) w.classList.add("has-avatar"); if(els[i].className.indexOf("show")<0) els[i].className+=" show"; } show("neutral"); blinkLoop(); poseLoop(); }); }
     return { init:init, apply:apply, feedAudio:feedAudio, flap:flap, emote:emote };
   })();
 
